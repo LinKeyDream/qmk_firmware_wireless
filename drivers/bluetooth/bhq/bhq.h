@@ -20,12 +20,8 @@
 #include <stdbool.h>
 #include "debug.h"
 
-#ifdef DEBUG_BHQ
-#    define bhq_printf dprintf
-#else
-#    define bhq_printf(str, ...) \
-        {}
-#endif
+#include "km_printf.h"
+#define bhq_printf(format, ...) km_printf(format, ##__VA_ARGS__)
 
 
 // Error checking
@@ -90,11 +86,11 @@ enum {
 
 // -------------------- bhq protocol Small terminal mode --------------------
 #define BHQ_RUN_OR_INT_LEVEL       1             // Module operating status and qmk have the level status of data transmission       
-#ifndef BHQ_RUN_STATE_INPUT_PIN
-#    error "BHQ_RUN_STATE_INPUT_PIN is not defined"
+#ifndef BHQ_IQR_PIN
+#    error "BHQ_IQR_PIN is not defined"
 #endif
-#ifndef QMK_RUN_OUTPUT_PIN
-#    error "QMK_RUN_OUTPUT_PIN is not defined"
+#ifndef BHQ_INT_PIN
+#    error "BHQ_INT_PIN is not defined"
 #endif
 
 
@@ -104,8 +100,7 @@ void BHQ_SendCmd(uint8_t isack, uint8_t *dat, uint8_t datLength);
 
 void bhq_ConfigRunParam(bhkDevConfigInfo_t parma);
 
-
-void BHQ_State_Call(uint8_t cmdid, uint8_t *dat);
+void BHQ_Protocol_Process_user(uint8_t *dat, uint16_t length) ;
 
 
 void bhq_SetPairingMode(uint8_t host_index, uint16_t timeout_1S);

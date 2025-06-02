@@ -17,7 +17,6 @@
 #include "bluetooth.h"
 #include "bluetooth_bhq.h"
 #include "config.h"
-#include "raw_hid.h"
 #include "report_buffer.h"
 #include "uart.h"
 #include "quantum.h"
@@ -28,8 +27,8 @@ uint32_t uartTimeoutBuffer = 0;         // uart timeout
 void bhq_init(void) 
 {
     uart_init(128000);
-    gpio_set_pin_input_low(BHQ_RUN_STATE_INPUT_PIN);    // Module operating status. 
-    gpio_set_pin_output(QMK_RUN_OUTPUT_PIN);            // The qmk has a data request.
+    gpio_set_pin_input_low(BHQ_IQR_PIN);    // Module operating status. 
+    gpio_set_pin_output(BHQ_INT_PIN);            // The qmk has a data request.
 }
 
 void bhq_Disable(void)
@@ -49,37 +48,37 @@ void BHQ_SendData(uint8_t *dat, uint16_t length)
     uint32_t wait_bhq_ack_timeout = 0;
     uint32_t last_toggle_time = 0;
     uint32_t bhq_wakeup = 0;
-    if(gpio_read_pin(BHQ_RUN_STATE_INPUT_PIN) != BHQ_RUN_OR_INT_LEVEL)
+    if(gpio_read_pin(BHQ_IQR_PIN) != BHQ_RUN_OR_INT_LEVEL)
     {
-        wait_bhq_ack_timeout = sync_timer_read32();
-        last_toggle_time = sync_timer_read32();
+        wait_bhq_ack_timeout = timer_read32();
+        last_toggle_time = timer_read32();
         while(1)
         {
             // Flip the level to wake the module
-            gpio_write_pin_high(QMK_RUN_OUTPUT_PIN);
-            if(sync_timer_elapsed32(last_toggle_time) >= 20)
+            gpio_write_pin_high(BHQ_INT_PIN);
+            if(timer_elapsed32(last_toggle_time) >= 20)
             {
-                gpio_write_pin_low(QMK_RUN_OUTPUT_PIN);
-                last_toggle_time = sync_timer_read32();
+                gpio_write_pin_low(BHQ_INT_PIN);
+                last_toggle_time = timer_read32();
             }
             // After the high and low level jump, the module wakes up, then you need to wait 10ms for the module to stabilize
-            if(gpio_read_pin(BHQ_RUN_STATE_INPUT_PIN) == BHQ_RUN_OR_INT_LEVEL && bhq_wakeup == 0)
+            if(gpio_read_pin(BHQ_IQR_PIN) == BHQ_RUN_OR_INT_LEVEL && bhq_wakeup == 0)
             {
-                bhq_wakeup = sync_timer_read32();
+                bhq_wakeup = timer_read32();
             }
-            if(gpio_read_pin(BHQ_RUN_STATE_INPUT_PIN) == BHQ_RUN_OR_INT_LEVEL && sync_timer_elapsed32(last_toggle_time) >= 5)
+            if(gpio_read_pin(BHQ_IQR_PIN) == BHQ_RUN_OR_INT_LEVEL && timer_elapsed32(last_toggle_time) >= 5)
             {
                 break;
             }
 
-            if(sync_timer_elapsed32(wait_bhq_ack_timeout) > 100) 
+            if(timer_elapsed32(wait_bhq_ack_timeout) > 100) 
             {
-                gpio_write_pin_high(QMK_RUN_OUTPUT_PIN);
+                gpio_write_pin_high(BHQ_INT_PIN);
                 return;
             }
         }
     }
-    gpio_write_pin_high(QMK_RUN_OUTPUT_PIN);
+    gpio_write_pin_high(BHQ_INT_PIN);
     uart_transmit(dat, length);
 
     // bhq_printf("mcu send data:");
@@ -364,28 +363,6 @@ void bhq_send_hid_raw(uint8_t *data, uint8_t length)
     BHQ_SendCmd(BHQ_ACK, bhkBuff,index);
 }
 
-// BHQ Status callback
-__attribute__((weak)) void BHQ_State_Call(uint8_t cmdid, uint8_t *dat) {
-
-    // uint8_t advertSta = BHQ_GET_BLE_ADVERT_STA(dat[1]);
-    // uint8_t connectSta = BHQ_GET_BLE_CONNECT_STA(dat[1]);
-    // uint8_t pairingSta = BHQ_GET_BLE_PAIRING_STA(dat[1]);
-
-    // advertSta = BHQ_GET_BLE_ADVERT_STA(dat[1]);
-    // connectSta = BHQ_GET_BLE_CONNECT_STA(dat[1]);
-    // pairingSta = BHQ_GET_BLE_PAIRING_STA(dat[1]);
-
-    // bhq_printf("cmdid:%d",cmdid);
-    // if(cmdid == BHQ_ACK_RUN_STA_CMDID)
-    // {
-    //     bhq_printf("[RSSI:%d]\t",dat[0]);
-    //     bhq_printf("[advertSta: %d]\t", advertSta);
-    //     bhq_printf("[connectSta: %d]\t", connectSta); // 0 = 断开, 1 = 已连接, 2 = 超时
-    //     bhq_printf("[pairingSta: %d]\t", pairingSta);
-    //     bhq_printf("[host_index:%d]\n",dat[2]);
-    // }
-}
-
 void BHQ_Led_Lock(uint8_t led_sta)
 {
     // bhq_printf("[%s] Num Lock\t", (led_sta & (1<<0)) ? "*" : " ");
@@ -394,45 +371,26 @@ void BHQ_Led_Lock(uint8_t led_sta)
     // bhq_printf("bhq led sta:%d\n",led_sta);
     bluetooth_bhq_set_keyboard_leds(led_sta);
 }
-void BHQ_Sta_Handel(uint8_t cmdid, uint8_t *dat) 
+
+__attribute__((weak)) void BHQ_Protocol_Process_user(uint8_t *dat, uint16_t length) 
 {
-    uint8_t connectSta = BHQ_GET_BLE_CONNECT_STA(dat[1]);
-    if(connectSta == 0)
-    {
-        BHQ_Led_Lock(0);
-    }
-    if(cmdid == BHQ_ACK_LED_LOCK_CMDID)
-    {
-        BHQ_Led_Lock(dat[0]);
-    }
-    BHQ_State_Call(cmdid, dat);
+    
 }
 // BHQ_Protocol_Process
 void BHQ_Protocol_Process(uint8_t *dat, uint16_t length)
 {
     uint8_t cmdid = 0;
+    uint8_t cmd_length = 0;
     uint8_t buff_sta = 0;
     cmdid = dat[3];
-    uint8_t i = 0 ;
+    cmd_length = dat[2];
+    // uint8_t i = 0 ;
     // bhq_printf("BHQ_Protocol_Process: cmdid:%d\r\n",cmdid);
-    uint8_t hid_data[32] = {0};
-
     switch(cmdid)
     {
         case 0x26:  // BHQ model return hid led lock sta
-            dat[4] = dat[4];    // led lock sta
             ackCommonNotData(cmdid,0);
-            BHQ_Sta_Handel(cmdid,&dat[4]);
-            break;
-        case 0x27:  // BHQ model return hid raw data 
-            // data and length
-            raw_hid_receive(&dat[5],dat[4]);  
-            // bhq_printf("bhq return hid raw data:length:%d[%02x %02x %02x]\r\n",dat[5],dat[6],dat[7],dat[8]);
-            // for (i = 0; i < length; i++)
-            // {
-            //     bhq_printf("%02x ",dat[i]);
-            // }
-            // bhq_printf("\r\n");
+            BHQ_Led_Lock(dat[4]);
             break;
         case 0xA1:
         case 0xA2:
@@ -441,6 +399,10 @@ void BHQ_Protocol_Process(uint8_t *dat, uint16_t length)
         case 0xA5:
         case 0xA7:
             buff_sta = dat[4];
+            if(cmd_length == 3) // key code command response frame carries an led lock (!! new 207+)
+            {
+                BHQ_Led_Lock(dat[5]);
+            }
             switch(buff_sta)
             {
                 case 0:
@@ -449,35 +411,16 @@ void BHQ_Protocol_Process(uint8_t *dat, uint16_t length)
                 break;
                 case 1:
                     report_buffer_set_retry(0);
-                    report_buffer_set_inverval(DEFAULT_REPORT_INVERVAL_MS + 80);
+                    report_buffer_set_inverval(DEFAULT_REPORT_INVERVAL_MS + 5);
                 break;
                 case 2:
-                    report_buffer_set_inverval(DEFAULT_REPORT_INVERVAL_MS + 100);
+                    report_buffer_set_inverval(DEFAULT_REPORT_INVERVAL_MS + 50);
                 break;
             }
-            break;
-
-        case 0x93:  //  BHQ model return [ble connect sta , ble pair sta...]
-            BHQ_Sta_Handel(cmdid, &dat[4]);
-            // for (i = 0; i < length; i++)
-            // {
-            //     bhq_printf("%02x ",dat[i]);
-            // }
-            // bhq_printf("\r\n");
-            break;
-        case 0x92:  // read module Info
-        case 0xB1:
-        case 0xB2:
-            // bhq_printf("ota:[");
-            for (i = 0; i < length; i++)
-            {
-                hid_data[i] = dat[i];
-                // bhq_printf("%02x ",dat[i]);
-            }
-            // bhq_printf("]\r\n");
-            raw_hid_send(hid_data, 32);
+            // bhq_printf("key ack sta:%d\n",buff_sta);
             break;
     }
+    BHQ_Protocol_Process_user(dat,length);
 }
 
 
@@ -493,22 +436,19 @@ void bhq_task(void)
     int16_t temp = BHQ_ReadData();
     if(temp == -1)
     {
-        if(sync_timer_elapsed32(uartTimeoutBuffer) > 1500)
+        // bhq_printf("not data\n");
+        if(timer_elapsed32(uartTimeoutBuffer) > 100)
         {
-            uartTimeoutBuffer = sync_timer_read32();
+            uartTimeoutBuffer = timer_read32();
             if(index > 0)
             {
                 index = 0;
                 u_sta = 0;
                 dataLength = 0;
                 memset(buf, 0, PACKET_MAX_LEN);
+                // bhq_printf("timeout\n");
             }
         }
-        else
-        {
-            uartTimeoutBuffer = sync_timer_read32();
-        }
-        
     }
     else
     {
@@ -521,49 +461,64 @@ void bhq_task(void)
     }
     wait_for_new_pkt = false;
     bytedata = (uint8_t)temp;
-    uartTimeoutBuffer = sync_timer_read32();
-    // bhq_printf("%02x ",bytedata);
+    uartTimeoutBuffer = timer_read32();
+    // bhq_printf("%02x \n",bytedata);
     switch (u_sta)
     {
         case 0:
+        {
             if(bytedata == 0x5D)
             {
                 index = 0;
                 buf[index++] = bytedata;
                 u_sta++;  
+                // bhq_printf("read:[5D ");
                 // bhq_printf("read 0x5d\r\n");
             }
             break;
+        }
         case 1:
+        {
             if(bytedata == 0x7E)
             {
                 buf[index++] = bytedata;
                 u_sta++;  
-                // bhq_printf("read 0x7E\r\n");
+                // bhq_printf("7E ");
             }
             break;
+        }
         case 2:
+        {
             buf[index++] = bytedata;
-            dataLength = 2 + 1 + bytedata + 2 + 1;  //  Frame Header2  + length1 + dataN + crc2 + Frame end1
-            u_sta++;  
-            // bhq_printf("read bytedata:%d\r\n",dataLength);
-            break;
-        case 3:
-            buf[index++] = bytedata;
-            // bhq_printf("%02x ",bytedata);
+            u_sta = 3;
+
+            dataLength = 2 + 1 + bytedata + 2 + 1;
+
+            while(index < dataLength)
+            {
+                temp = BHQ_ReadData();
+                if(temp == -1)
+                {
+                    break; 
+                }
+                // bhq_printf("%02x ",temp);
+                buf[index++] = (uint8_t)temp;
+                uartTimeoutBuffer = timer_read32();
+            }
             if(index == dataLength && buf[dataLength - 1] == 0x5E)
             {
+                // bhq_printf("]\r\n");
                 if(bhkVerify(buf, index) == 0x00)
                 {
-                    BHQ_Protocol_Process(buf, index) ;
+                    BHQ_Protocol_Process(buf, index);
                 }
-                index = 0;
-                u_sta = 0;
-                dataLength = 0;
-                memset(buf, 0, PACKET_MAX_LEN);
-                // bhq_printf("\r\n");
             }
-            break;
+            index = 0;
+            u_sta = 0;
+            dataLength = 0;
+            memset(buf, 0, PACKET_MAX_LEN);
+            break;    
+        }
     }
 }
 

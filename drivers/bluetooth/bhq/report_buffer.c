@@ -35,7 +35,7 @@
  *        sizeof(report_buffer_t) * 256 = 34* 256  =  8704 bytes
  */
 #ifndef REPORT_BUFFER_QUEUE_SIZE
-#    define REPORT_BUFFER_QUEUE_SIZE 512
+#    define REPORT_BUFFER_QUEUE_SIZE 64
 #endif
 
 
@@ -85,6 +85,14 @@ inline bool report_buffer_dequeue(report_buffer_t *report) {
     report_buffer_queue_tail = (report_buffer_queue_tail + 1) % REPORT_BUFFER_QUEUE_SIZE;
     return true;
 }
+report_buffer_t* report_buffer_peek_last(void) {
+    if (report_buffer_queue_head == report_buffer_queue_tail) {
+        return NULL; 
+    }
+
+    uint16_t last_index = (report_buffer_queue_head + REPORT_BUFFER_QUEUE_SIZE - 1) % REPORT_BUFFER_QUEUE_SIZE;
+    return &report_buffer_queue[last_index];
+}
 
 bool report_buffer_is_empty() {
     return report_buffer_queue_head == report_buffer_queue_tail;
@@ -108,7 +116,14 @@ uint8_t report_buffer_get_retry(void) {
 }
 
 void report_buffer_set_retry(uint8_t times) {
-    retry = 0;
+    retry = times;
+}
+void report_buffer_clear(void) {
+    report_buffer_queue_head = 0;
+    report_buffer_queue_tail = 0;
+    retry                    = 0;
+    retry_time_buffer        = 0;
+    memset(&kb_rpt, 0, sizeof(kb_rpt));
 }
 
 void report_buffer_task(void) {
@@ -121,13 +136,15 @@ void report_buffer_task(void) {
                     pending_data      = true;
                     retry             = RETPORT_RETRY_COUNT;
                     retry_time_buffer = timer_read32();
+                    bhq_printf("1 retry:%d\n",retry);
                 }
             }
         } else {
-            if (timer_elapsed32(retry_time_buffer) > 80) {  // retry interval
+            if (timer_elapsed32(retry_time_buffer) > 10) {  // retry interval
                 pending_data = true;
                 --retry;
                 retry_time_buffer = timer_read32();
+                bhq_printf("2 retry:%d\n",retry);
             }
         }
        if (pending_data) {

@@ -17,6 +17,7 @@
 
 #if defined(BLUETOOTH_BHQ)
 #   include "bhq.h"
+#   include "bhq_common.h"
 #endif
 
 #if defined(KB_LPM_ENABLED)
@@ -28,8 +29,10 @@
 #endif
 
 #if defined(KB_CHECK_BATTERY_ENABLED)
-    extern void battery_percent_read_task(void);
+#include "battery.h"
 #   endif
+
+
 
 void board_init(void) 
 {
@@ -46,7 +49,7 @@ void board_init(void)
 }
 void housekeeping_task_kb(void) {
 #if defined(BLUETOOTH_BHQ)
-
+    bhq_switch_host_task();
     #if defined(KB_CHECK_BATTERY_ENABLED)
         battery_percent_read_task();
     #   endif

@@ -13,6 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+// Very few codes are borrowed from https://www.keychron.com
 #include "quantum.h"
 #include "lpm.h"
 #include "matrix.h"
@@ -23,6 +24,10 @@
 #include "bhq.h"
 #include "report_buffer.h"
 #include "uart.h"
+
+#if SHIFT595_ENABLED
+#   include "74hc595.h"
+#endif
 
 static uint32_t     lpm_timer_buffer = 0;
 static bool         lpm_time_up               = false;
@@ -51,7 +56,7 @@ void lpm_init(void)
 
     lpm_timer_reset();
 
-    gpio_write_pin_high(QMK_RUN_OUTPUT_PIN);
+    gpio_write_pin_high(BHQ_INT_PIN);
 
 // usb
     gpio_set_pin_input(USB_POWER_SENSE_PIN);
@@ -116,7 +121,16 @@ void enter_low_power_mode_prepare(void)
     {
        return;
     }
+#if SHIFT595_ENABLED
+    shift595_write_all(0x00);
+    shift595_pin_sleep();
+#endif
     lpm_set_unused_pins_to_input_analog();    // 设置没有使用的引脚为模拟输入
+#if SHIFT595_ENABLED
+    shift595_pin_sleep();
+#endif
+
+
     uint8_t i = 0;
 #if (DIODE_DIRECTION == COL2ROW)
     // Set row(low valid), read cols
@@ -128,7 +142,7 @@ void enter_low_power_mode_prepare(void)
         } 
         ATOMIC_BLOCK_FORCEON {
             gpio_set_pin_input_high(wakeUpCol_pins[i]);
-            palEnableLineEvent(wakeUpCol_pins[i], PAL_EVENT_MODE_BOTH_EDGES);
+            palEnableLineEvent(wakeUpCol_pins[i], PAL_EVENT_MODE_RISING_EDGE);
         }
     }
     for (i = 0; i < matrix_rows(); i++)
@@ -153,9 +167,10 @@ void enter_low_power_mode_prepare(void)
         } 
         ATOMIC_BLOCK_FORCEON {
             gpio_set_pin_input_high(wakeUpRow_pins[i]);
-            palEnableLineEvent(wakeUpRow_pins[i], PAL_EVENT_MODE_BOTH_EDGES);
+            palEnableLineEvent(wakeUpRow_pins[i], PAL_EVENT_MODE_RISING_EDGE);
         }
     }
+
     for (i = 0; i < matrix_cols(); i++)
     { // set col output low level
         if(wakeUpCol_pins[i] == NO_PIN)
@@ -167,12 +182,13 @@ void enter_low_power_mode_prepare(void)
             gpio_write_pin_low(wakeUpCol_pins[i]);
         }
     }
+
 #endif
 
 
-    gpio_set_pin_input_low(BHQ_RUN_STATE_INPUT_PIN);
-    palEnableLineEvent(BHQ_RUN_STATE_INPUT_PIN, PAL_EVENT_MODE_RISING_EDGE);
-    gpio_write_pin_low(QMK_RUN_OUTPUT_PIN);
+    gpio_set_pin_input_low(BHQ_IQR_PIN);
+    palEnableLineEvent(BHQ_IQR_PIN, PAL_EVENT_MODE_RISING_EDGE);
+    gpio_write_pin_low(BHQ_INT_PIN);
 
 // usb 插入检测
     gpio_set_pin_input(USB_POWER_SENSE_PIN);
@@ -200,10 +216,6 @@ void enter_low_power_mode_prepare(void)
     /*  USB D+/D- */
     palSetLineMode(A11, PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST | PAL_STM32_PUPDR_FLOATING | PAL_MODE_ALTERNATE(10U));
     palSetLineMode(A12, PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST | PAL_STM32_PUPDR_FLOATING | PAL_MODE_ALTERNATE(10U));
-    if (usb_power_connected()) {
-        usb_event_queue_init();
-        init_usb_driver(&USBD1);
-    }
  
     /* Call debounce_free() to avoiding memory leak of debounce_counters as debounce_init()
     invoked in matrix_init() alloc new memory to debounce_counters */
@@ -213,13 +225,14 @@ void enter_low_power_mode_prepare(void)
     lpm_timer_reset();
     report_buffer_init();
     bhq_init();     // uart_init
-
+    
+    mousekey_clear();
     clear_keyboard();
     layer_clear();
 
     lpm_device_power_open();    // 外围设备 电源 关闭
   
-    gpio_write_pin_high(QMK_RUN_OUTPUT_PIN);
+    gpio_write_pin_high(BHQ_INT_PIN);
 
 }
 
@@ -228,10 +241,17 @@ void enter_low_power_mode_prepare(void)
 void lpm_task(void)
 {
     if (usb_power_connected() && USBD1.state == USB_STOP) {
+        /*  USB D+/D- */
+        palSetLineMode(A11, PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST | PAL_STM32_PUPDR_FLOATING | PAL_MODE_ALTERNATE(10U));
+        palSetLineMode(A12, PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST | PAL_STM32_PUPDR_FLOATING | PAL_MODE_ALTERNATE(10U));
         usb_event_queue_init();
         init_usb_driver(&USBD1);
     }
-
+    
+    if (usb_power_connected()) 
+    {
+       return;
+    }
 
     if(report_buffer_is_empty() == false)
     {
