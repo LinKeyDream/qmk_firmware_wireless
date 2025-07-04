@@ -21,6 +21,7 @@
 uint8_t bhq_led_sta = 0;
 
 void bluetooth_bhq_init(void) {
+    bhq_led_sta = 0;
     bhq_init();
     report_buffer_init();
 }
