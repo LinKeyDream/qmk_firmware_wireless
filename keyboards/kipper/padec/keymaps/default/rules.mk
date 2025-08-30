@@ -1,0 +1,3 @@
+VIA_ENABLE = yes
+HAPTIC_ENABLE = yes
+HAPTIC_DRIVER = solenoid
