@@ -60,6 +60,18 @@
 #   define BLE_OFF      QK_USER_29       
 #endif
 
+
+#ifndef USB_POWER_SENSE_PIN                         // usb insert detection 
+#    define USB_POWER_SENSE_PIN     A10
+#endif
+#ifndef USB_POWER_CONNECTED_LEVEL                   // active level
+#    define USB_POWER_CONNECTED_LEVEL 1    
+#endif
+
+void bhq_set_lowbat_led(bool on);
+
+void bhq_common_init(void);
+bool usb_power_connected(void);
 bool process_record_bhq(uint16_t keycode, keyrecord_t *record);
-void bhq_switch_host_task(void);
+void bhq_wireless_task(void);
 bool via_command_bhq(uint8_t *data, uint8_t length);

@@ -28,6 +28,11 @@
             "name": "BLE\nOFF",
             "title": "Turn Off the Bluetooth Channel",
             "shortName": "BLE\nOFF"
+        },
+        {
+            "name": "BLE\nRESET",
+            "title": "Reset the Bluetooth module",
+            "shortName": "BLE\nRESET"
         }
     ],
     "menus": [

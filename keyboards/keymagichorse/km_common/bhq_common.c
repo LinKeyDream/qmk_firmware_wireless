@@ -14,6 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+#include "bluetooth.h"
 #include "bhq_common.h"
 #include "bhq.h"
 #include "wireless.h"
@@ -22,11 +24,35 @@
 #include "battery.h"
 #include "outputselect.h"
 #include "usb_main.h"
+
+# if defined(KB_CHECK_BATTERY_ENABLED)
+#   include "battery.h"
+#endif
+
 # if defined(KB_LPM_ENABLED)
 #   include "lpm.h"
 #endif
 
+bool usb_power_connected(void) {
+#ifdef USB_POWER_SENSE_PIN
+    return readPin(USB_POWER_SENSE_PIN) == USB_POWER_CONNECTED_LEVEL;
+#else
+    return true;
+#endif
+}
 
+__attribute__((weak)) void bhq_set_lowbat_led(bool on)
+{
+    // TODO:补充
+}
+
+void bhq_common_init(void)
+{
+# if defined(KB_CHECK_BATTERY_ENABLED)
+    battery_init();
+#endif
+    gpio_set_pin_input(USB_POWER_SENSE_PIN);
+}
 // --------------------  都是用于处理按键触发的变量 --------------------
 uint16_t this_down_wireless_keycode = 0;
 uint32_t down_wirlees_keycode_time = 0;
@@ -65,14 +91,10 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
                     // 重新打开非配对蓝牙广播。如已开启蓝牙广播或已连接，那么不会断开当前的蓝牙连接。
                     bhq_AnewOpenBleAdvertising(transport_get() - KB_TRANSPORT_BLUETOOTH_1, 30);
                 }
-            }   
-            else if(IS_RF_TRANSPORT(transport_get()) == true)
-            {
-                bhq_switch_rf_easy_kb();
             }
         }
     }
-
+    km_printf("keycide:%d %d\n",keycode,record->event.pressed);
     // 蓝牙模式点按
     if(keycode == BL_SW_0 || keycode == BL_SW_1 || keycode == BL_SW_2)
     {
@@ -83,7 +105,7 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
         }
         else
         {
-            if(timer_elapsed32(down_wirlees_keycode_time) >= 80 && timer_elapsed32(down_wirlees_keycode_time) <= 800)
+            if(timer_elapsed32(down_wirlees_keycode_time) >= 30 && timer_elapsed32(down_wirlees_keycode_time) <= 800)
             {
                 switch (keycode)
                 {
@@ -97,6 +119,7 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
                         key_ble_host_index = 2;
                         break;  
                 }
+                km_printf("key short down:bleid->%d\n",key_ble_host_index);
                 // 打开非配对模式蓝牙广播 10 = 10S
                 bhq_OpenBleAdvertising(key_ble_host_index, 30);
                 transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
@@ -104,7 +127,7 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
             this_down_wireless_keycode = 0;
             down_wirlees_keycode_time = 0;
         }
-        return false;
+        return true;
     }
 
 
@@ -119,7 +142,7 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
                 bhq_OpenBleAdvertising(key_ble_host_index, 30);
                 transport_set(KB_TRANSPORT_BLUETOOTH_1);
             }
-            return false;
+            return true;
         }
         case RF_TOG:
         {
@@ -128,7 +151,7 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
                 bhq_switch_rf_easy_kb();
                 transport_set(KB_TRANSPORT_RF);  
             }
-            return false;
+            return true;
         }
         case USB_TOG:
         {
@@ -138,7 +161,7 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
                 bhq_CloseBleAdvertising();
                 transport_set(KB_TRANSPORT_USB);  
             }
-            return false;
+            return true;
         }
         case BLE_OFF:
         {
@@ -147,12 +170,8 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
                 // 关闭蓝牙广播
                 bhq_CloseBleAdvertising();
             }
-            return false;
+            return true;
         }
-    }
-    if(IS_WIRELESS_TRANSPORT(transport_get()) == true && wireless_get()  != WT_STATE_CONNECTED )
-    {
-        return false;
     }
     return true;
 }
@@ -180,6 +199,7 @@ void bhq_switch_host_task(void){
                     key_ble_host_index = 2;
                     break;
             }
+            km_printf("key long down:bleid->%d\n",key_ble_host_index);
             // 打开配对广播
             bhq_SetPairingMode(key_ble_host_index, 30);
             transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
@@ -191,6 +211,43 @@ void bhq_switch_host_task(void){
     }
 }
 
+void bhq_battery_task(void)
+{
+    static uint32_t battery_low_led_flicker_time = 0;
+    static uint8_t led_sta = 0;
+    if(battery_get() > 5)
+    {
+        battery_low_led_flicker_time = 0;
+        bluetooth_enable();
+    }
+    else
+    {
+        if(battery_low_led_flicker_time == 0)
+        {
+            battery_low_led_flicker_time = timer_read32();
+        }
+        if(timer_elapsed32(battery_low_led_flicker_time) >= 500)
+        {
+            battery_low_led_flicker_time = 0;
+            led_sta = !led_sta;
+            bhq_set_lowbat_led(led_sta);
+        }
+        bluetooth_disable();
+# if defined(KB_CHECK_BATTERY_ENABLED)
+        battery_stop();
+#endif
+    }
+}
+
+void bhq_wireless_task(void)
+{
+    bhq_switch_host_task();
+# if defined(KB_CHECK_BATTERY_ENABLED)
+    battery_percent_read_task();
+    bhq_battery_task();
+#endif
+
+}
 
 // Keyboard level code can override this, but shouldn't need to.
 // Controlling custom features should be done by overriding

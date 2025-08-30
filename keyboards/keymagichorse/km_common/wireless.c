@@ -25,7 +25,9 @@
 #ifdef RAW_ENABLE
 #   include "raw_hid.h"
 #endif
-
+# if defined(KB_CHECK_BATTERY_ENABLED)
+#   include "battery.h"
+#endif
 // 这里用于处理连接的回调
 static wt_state_t wt_state = WT_STATE_INITIALIZED;  // 默认初始化
 
@@ -38,20 +40,32 @@ void wireless_ble_hanlde(uint8_t host_index, uint8_t advertSta,uint8_t connectSt
     if(connectSta != 1 && advertSta == 1 && pairingSta == 1)
     {
         wt_state = WT_STATE_ADV_PAIRING;
+# if defined(KB_CHECK_BATTERY_ENABLED)
+        battery_stop();
+#endif
     }
     // 蓝牙没有连接 && 蓝牙广播开启  && 蓝牙非配对模式
     else if(connectSta != 1 && advertSta == 1 && pairingSta == 0)
     {
         wt_state = WT_STATE_ADV_UNPAIRED;
+# if defined(KB_CHECK_BATTERY_ENABLED)
+        battery_stop();
+#endif
     }
     // 无连接 无广播
     else if(connectSta == 0 && advertSta == 0)
     {
         wt_state = WT_STATE_DISCONNECTED;
+# if defined(KB_CHECK_BATTERY_ENABLED)
+        battery_stop();
+#endif
     }
     // 蓝牙已连接
     if(connectSta == 1)
     {
+# if defined(KB_CHECK_BATTERY_ENABLED)
+        battery_start();
+#endif
         report_buffer_clear();// 已连接时，清空一下
         battery_read_and_update_data();
         wt_state = WT_STATE_CONNECTED;
@@ -67,10 +81,16 @@ void wireless_rf24g_hanlde(uint8_t connectSta,uint8_t pairingSta)
     {
         wt_state = WT_STATE_CONNECTED;
         report_buffer_clear();// 已连接时，清空一下
+# if defined(KB_CHECK_BATTERY_ENABLED)
+        battery_start();
+#endif
     }
     else if(connectSta == 0)
     {
         wt_state = WT_STATE_DISCONNECTED;
+# if defined(KB_CHECK_BATTERY_ENABLED)
+        battery_stop();
+#endif
     }
     wireless_rf24g_hanlde_kb(connectSta, pairingSta);
 }
@@ -140,7 +160,7 @@ void BHQ_Protocol_Process_user(uint8_t *dat, uint16_t length)
         case 0x27:  // RAW数据
             raw_hid_receive(&dat[5],dat[4]);  
             break;
-        case 0x96:  // 复位模块 ack
+        case 0x95:  // 复位模块 ack
         case 0x97:  // 设置参数 ack
         case 0x92:  // 读取模块信息 ack
         case 0xB1:  // ota ack

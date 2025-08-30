@@ -45,7 +45,7 @@ void board_init(void)
 }
 void housekeeping_task_kb(void) {
 #if defined(BLUETOOTH_BHQ)
-    bhq_switch_host_task();
+    bhq_wireless_task();
     #if defined(KB_CHECK_BATTERY_ENABLED)
         battery_percent_read_task();
     #   endif

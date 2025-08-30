@@ -24,6 +24,10 @@
 #include "action.h"
 #include "wait.h"
 
+#ifdef BLUETOOTH_BHQ
+    #include "bluetooth.h"
+#endif
+
 #if defined(AUDIO_ENABLE) && defined(SENDSTRING_BELL)
 #    include "audio.h"
 #    ifndef BELL_SOUND
@@ -179,11 +183,20 @@ void send_string_with_delay_impl(char (*getter)(void *), void *arg, uint8_t inte
                     ms += ascii_code - '0';
                     ascii_code = getter(arg);
                 }
-
-                wait_ms(ms);
+                while (ms--) {
+#ifdef BLUETOOTH_BHQ
+                    bluetooth_task();
+#endif
+                    wait_ms(1);
+                }
             }
-
-            wait_ms(interval);
+            int ms = interval;
+            while (ms--) {
+#ifdef BLUETOOTH_BHQ
+                bluetooth_task();
+#endif
+                wait_ms(1);
+            }
 
             // if we had a delay that terminated with a null, we're done
             if (ascii_code == 0) break;
@@ -220,7 +233,7 @@ void send_char_with_delay(char ascii_code, uint8_t interval) {
         return;
     }
 #endif
-
+    int ms = interval;
     uint8_t keycode    = pgm_read_byte(&ascii_to_keycode_lut[(uint8_t)ascii_code]);
     bool    is_shifted = PGM_LOADBIT(ascii_to_shift_lut, (uint8_t)ascii_code);
     bool    is_altgred = PGM_LOADBIT(ascii_to_altgr_lut, (uint8_t)ascii_code);
@@ -228,30 +241,66 @@ void send_char_with_delay(char ascii_code, uint8_t interval) {
 
     if (is_shifted) {
         register_code(KC_LEFT_SHIFT);
-        wait_ms(interval);
+        ms = interval;
+        while (ms--) {
+#ifdef BLUETOOTH_BHQ
+            bluetooth_task();
+#endif
+            wait_ms(1);
+        }
     }
 
     if (is_altgred) {
         register_code(KC_RIGHT_ALT);
-        wait_ms(interval);
+        ms = interval;
+        while (ms--) {
+#ifdef BLUETOOTH_BHQ
+            bluetooth_task();
+#endif
+            wait_ms(1);
+        }
     }
 
     tap_code_delay(keycode, interval);
-    wait_ms(interval);
+    ms = interval;
+    while (ms--) {
+#ifdef BLUETOOTH_BHQ
+        bluetooth_task();
+#endif
+        wait_ms(1);
+    }
 
     if (is_altgred) {
         unregister_code(KC_RIGHT_ALT);
-        wait_ms(interval);
+        ms = interval;
+        while (ms--) {
+#ifdef BLUETOOTH_BHQ
+            bluetooth_task();
+#endif
+            wait_ms(1);
+        }
     }
 
     if (is_shifted) {
         unregister_code(KC_LEFT_SHIFT);
-        wait_ms(interval);
+        ms = interval;
+        while (ms--) {
+#ifdef BLUETOOTH_BHQ
+            bluetooth_task();
+#endif
+            wait_ms(1);
+        }
     }
 
     if (is_dead) {
         tap_code(KC_SPACE);
-        wait_ms(interval);
+        ms = interval;
+        while (ms--) {
+#ifdef BLUETOOTH_BHQ
+            bluetooth_task();
+#endif
+            wait_ms(1);
+        }
     }
 }
 

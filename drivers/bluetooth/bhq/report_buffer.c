@@ -140,7 +140,7 @@ void report_buffer_task(void) {
                 }
             }
         } else {
-            if (timer_elapsed32(retry_time_buffer) > 10) {  // retry interval
+            if (timer_elapsed32(retry_time_buffer) > 15) {  // retry interval
                 pending_data = true;
                 --retry;
                 retry_time_buffer = timer_read32();

@@ -15,6 +15,15 @@
  */
 
 #pragma once
+#include "quantum.h"
+
+// 电池电压最高最低 mv
+#ifndef BATTER_MAX_MV                       
+#    define BATTER_MAX_MV     4150
+#endif
+#ifndef BATTER_MIN_MV                      
+#    define BATTER_MIN_MV     3500
+#endif
 
 // ------------------------ 电池分压电阻的配置 ------------------------
 /* Battery voltage resistive voltage divider setting of MCU */
@@ -38,9 +47,12 @@
 #endif
 // ------------------------ 电池电压读取的引脚 ------------------------
 
-// 电池电压最高最低 mv
-#define BATTER_MAX_MV   4150
-#define BATTER_MIN_MV   3500
+
+
 void battery_read_and_update_data(void);
 void battery_percent_read_task(void);
 void battery_reset_timer(void);
+uint8_t battery_get(void);
+void battery_stop(void);
+void battery_start(void);
+void battery_init(void);

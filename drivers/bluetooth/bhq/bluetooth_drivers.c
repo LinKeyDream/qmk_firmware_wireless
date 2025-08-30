@@ -18,12 +18,27 @@
 #include "bluetooth.h"
 #include "bluetooth_bhq.h"
 
+uint8_t bluetooth_enabled = true;
+
 void bluetooth_init(void) {
     bluetooth_bhq_init();
+    bluetooth_enabled = true;
 }
 
 void bluetooth_task(void) {
     bluetooth_bhq_task();
+}
+
+void bluetooth_enable(void) {
+    bluetooth_enabled = true;
+}
+
+void bluetooth_disable(void) {
+    bluetooth_enabled = false;
+}
+
+bool bluetooth_is_enabled(void) {
+    return bluetooth_enabled;
 }
 
 bool bluetooth_is_connected(void) {
@@ -35,32 +50,59 @@ bool bluetooth_can_send_nkro(void) {
 }
 
 uint8_t bluetooth_keyboard_leds(void) {
+    if (!bluetooth_is_enabled()) 
+    {
+        return 0;
+    }
     return bluetooth_bhq_get_keyboard_leds();
 }
 
 void bluetooth_send_keyboard(report_keyboard_t *report) {
+    if (!bluetooth_is_enabled()) 
+    {
+        return;
+    }
     bluetooth_bhq_send_keyboard(report);
 }
 
 void bluetooth_send_nkro(report_nkro_t *report) {
+    if (!bluetooth_is_enabled()) 
+    {
+        return;
+    }
     bluetooth_bhq_send_nkro(report);
 }
 
 void bluetooth_send_mouse(report_mouse_t *report) {
+    if (!bluetooth_is_enabled()) 
+    {
+        return;
+    }
     bluetooth_bhq_send_mouse(report);
 }
 
 void bluetooth_send_consumer(uint16_t usage) {
+    if (!bluetooth_is_enabled()) 
+    {
+        return;
+    }
     bluetooth_bhq_send_consumer(usage);
 }
 
 
-void bluetooth_send_system(uint16_t usage)
-{
+void bluetooth_send_system(uint16_t usage){
+    if (!bluetooth_is_enabled()) 
+    {
+        return;
+    }
     bluetooth_bhq_send_system(usage);
 }
 
 
 void bluetooth_send_raw_hid(uint8_t *data, uint8_t length) {
+    if (!bluetooth_is_enabled()) 
+    {
+        return;
+    }
     bluetooth_bhq_send_hid_raw(data, length);
 }

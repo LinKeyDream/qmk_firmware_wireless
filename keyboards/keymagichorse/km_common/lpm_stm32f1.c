@@ -24,6 +24,7 @@
 #include "bhq.h"
 #include "report_buffer.h"
 #include "uart.h"
+#include "bhq_common.h"
 
 static uint32_t     lpm_timer_buffer = 0;
 static bool         lpm_time_up               = false;
@@ -73,14 +74,6 @@ __attribute__((weak)) void lpm_device_power_close(void)
 __attribute__((weak)) void lpm_set_unused_pins_to_input_analog(void)
 {
 
-}
-
-__attribute__((weak)) bool usb_power_connected(void) {
-#ifdef USB_POWER_SENSE_PIN
-    return readPin(USB_POWER_SENSE_PIN) == USB_POWER_CONNECTED_LEVEL;
-#else
-    return true;
-#endif
 }
 
 void My_PWR_EnterSTOPMode(void)

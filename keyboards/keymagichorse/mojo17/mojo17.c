@@ -28,7 +28,7 @@ void board_init(void) {
 
 void housekeeping_task_kb(void) {
 #if defined(BLUETOOTH_BHQ)
-    bhq_switch_host_task();
+    bhq_wireless_task();
     #   if defined(KB_LPM_ENABLED)
         lpm_task();
     #   endif

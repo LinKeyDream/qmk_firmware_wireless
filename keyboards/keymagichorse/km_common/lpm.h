@@ -16,16 +16,11 @@
  */
 
 #pragma once
+#include "quantum.h"
 #ifndef RUN_MODE_PROCESS_TIME
-#    define RUN_MODE_PROCESS_TIME 10000
+#    define RUN_MODE_PROCESS_TIME (1000 * 10)
 #endif
 
-#ifndef USB_POWER_SENSE_PIN                         // usb insert detection 
-#    define USB_POWER_SENSE_PIN     A10
-#endif
-#ifndef USB_POWER_CONNECTED_LEVEL                   // active level
-#    define USB_POWER_CONNECTED_LEVEL 1    
-#endif
 
 #ifndef BHQ_MCU_WAKEUP_PIN                          // QMK_MCU wake up BHQ_MCU
 #    define BHQ_MCU_WAKEUP_PIN          A1

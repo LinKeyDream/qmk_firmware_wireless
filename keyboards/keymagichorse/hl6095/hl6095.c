@@ -27,16 +27,14 @@
 #if defined(KM_DEBUG)
 #   include "km_printf.h"
 #endif
-
-#if defined(KB_CHECK_BATTERY_ENABLED)
 #include "battery.h"
-#   endif
 
 
 
 void board_init(void) 
 {
 #if defined(BLUETOOTH_BHQ)
+    bhq_common_init();
 #   if defined(KB_LPM_ENABLED)
     lpm_init();
 #   endif
@@ -49,11 +47,7 @@ void board_init(void)
 }
 void housekeeping_task_kb(void) {
 #if defined(BLUETOOTH_BHQ)
-    bhq_switch_host_task();
-    #if defined(KB_CHECK_BATTERY_ENABLED)
-        battery_percent_read_task();
-    #   endif
-
+    bhq_wireless_task();
     #   if defined(KB_LPM_ENABLED)
         lpm_task();
     #   endif

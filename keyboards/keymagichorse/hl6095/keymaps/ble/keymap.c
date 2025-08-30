@@ -34,7 +34,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_LCTL, KC_LGUI, KC_LALT,  KC_SPC,   KC_SPC,  KC_SPC,                    KC_SPC,    MO(1),    KC_RCTL,    KC_LEFT,  KC_DOWN, KC_RIGHT),
   [1] = LAYOUT_all(
     KC_GRV , KC_F1,   KC_F2,   KC_F3,    KC_F4,   KC_F5,   KC_F6,   KC_F7,    KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,  KC_TRNS, KC_DEL,
-    KC_TRNS, BL_SW_0, BL_SW_1,  RF_TOG,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+    KC_TRNS, BL_SW_0, BL_SW_1, BL_SW_2,  RF_TOG, KC_TRNS, KC_TRNS, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     KC_TRNS, USB_TOG, NK_TOGG, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_BRIU, KC_TRNS,
     KC_TRNS, GU_TOGG,   KC_TRNS, KC_TRNS,  KC_TRNS, KC_TRNS,                    KC_TRNS, KC_TRNS, KC_TRNS, KC_VOLD, KC_BRID, KC_VOLU),
@@ -60,24 +60,31 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 #if defined(RGBLIGHT_ENABLE) 
 //  每个通道的颜色 以及大写按键的颜色
-const rgblight_segment_t PROGMEM bt_conn1[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_RED} );   // 红
-const rgblight_segment_t PROGMEM bt_conn2[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_GREEN} ); // 绿
-const rgblight_segment_t PROGMEM bt_conn3[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_BLUE} );  // 蓝
-const rgblight_segment_t PROGMEM caps_lock_[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_PURPLE} );  // 紫色
+const rgblight_segment_t PROGMEM bt_conn1[]   = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_BLUE} );      // 通道1：蓝色
+const rgblight_segment_t PROGMEM bt_conn2[]   = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_TURQUOISE} ); // 通道2：蓝绿色（青绿）
+const rgblight_segment_t PROGMEM bt_conn3[]   = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_ORANGE} );    // 通道3：橙色
+const rgblight_segment_t PROGMEM caps_lock_[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_PURPLE} );    // 大小写：紫色
+const rgblight_segment_t PROGMEM bat_low_led[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_RED} );      // 低电量：红色
 
 const rgblight_segment_t* const PROGMEM _rgb_layers[] = RGBLIGHT_LAYERS_LIST( 
-    bt_conn1, bt_conn2, bt_conn3, caps_lock_
+    bt_conn1, bt_conn2, bt_conn3, caps_lock_, bat_low_led
 );
 
 void rgb_adv_unblink_all_layer(void) {
-    for (uint8_t i = 0; i < 3; i++) {
+    for (uint8_t i = 0; i < 4; i++) {
         rgblight_unblink_layer(i);
     }
 }
 
+void bhq_set_lowbat_led(bool on)
+{
+    rgb_adv_unblink_all_layer();
+    rgblight_set_layer_state(4, on);
+}
+
 bool led_update_user(led_t led_state) {
     // 如果当前是USB连接，或者是蓝牙/2.4G连接且已配对连接状态
-    if( (transport_get() > KB_TRANSPORT_USB && wireless_get() == WT_STATE_CONNECTED) || transport_get() == KB_TRANSPORT_USB)
+    if( (transport_get() > KB_TRANSPORT_USB && wireless_get() == WT_STATE_CONNECTED) || ( usb_power_connected() == true && transport_get() == KB_TRANSPORT_USB))
     {
         rgblight_set_layer_state(3, led_state.caps_lock);
         km_printf("led_update_user\r\n");
@@ -139,6 +146,8 @@ void keyboard_post_init_kb(void)
     rgblight_disable();
     rgblight_layers = _rgb_layers;
 #endif
+    rgblight_disable();
+    rgb_adv_unblink_all_layer();
 }
 
 #   if defined(KB_LPM_ENABLED)
@@ -202,7 +211,7 @@ void lpm_set_unused_pins_to_input_analog(void)
     palSetLineMode(A7, PAL_MODE_INPUT_ANALOG); 
     palSetLineMode(A8, PAL_MODE_INPUT_ANALOG); 
     palSetLineMode(A9, PAL_MODE_INPUT_ANALOG); 
-    palSetLineMode(A10, PAL_MODE_INPUT_ANALOG); 
+    // palSetLineMode(A10, PAL_MODE_INPUT_ANALOG); 
     palSetLineMode(A11, PAL_MODE_INPUT_ANALOG); 
     palSetLineMode(A13, PAL_MODE_INPUT_ANALOG); 
     palSetLineMode(A14, PAL_MODE_INPUT_ANALOG); 

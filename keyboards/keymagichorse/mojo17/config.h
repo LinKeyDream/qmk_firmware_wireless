@@ -8,6 +8,16 @@
 #define WS2812_DMA_CHANNEL     3
 #define RGB_POWER_ENABLED_PIN  A15
 
+// 细节请看 app/src/utils/key-to-byte/v12.ts
+#define USB_TOG     (0x7e00+0)    // 打开USB
+#define BL_SW_0     (0x7e00+1)    // 开启蓝牙通道0（需要打开蓝牙的条件下才行） 短按打开广播 长按开启配对广播
+#define BL_SW_1     (0x7e00+2)    // 开启蓝牙通道1（需要打开蓝牙的条件下才行） 短按打开广播 长按开启配对广播
+#define BL_SW_2     (0x7e00+3)    // 开启蓝牙通道2（需要打开蓝牙的条件下才行） 短按打开广播 长按开启配对广播
+#define BLE_OFF     (0x7e00+4)    // 关闭蓝牙连接
+#define BLE_RESET   (0x7e00+5)    // 蓝牙复位
+#define BLE_TOG     (0x7e00+6)    // 切换蓝牙输出 并 开启蓝牙广播（非配对类型）
+#define RF_TOG      (0x7e00+7)    // 切换 2.4ghz输出
+
 // 串口通信
 #define BHQ_IQR_PIN              B8
 #define BHQ_INT_PIN              B9
