@@ -74,14 +74,14 @@ void rtc_wakeup_set(void)
     // 10分钟内 50ms唤醒一次
     if (rtc_wakeup_timer < 10 * 60 * 1000) 
     {
-        wakeupspec.wutr = rtc_wakeup_calc(50);
-        rtc_wakeup_timer+=50;
+        wakeupspec.wutr = rtc_wakeup_calc(16);
+        rtc_wakeup_timer += 16;
     }
     // 30分钟后
     else 
     {
         wakeupspec.wutr = rtc_wakeup_calc(150);
-        rtc_wakeup_timer+=150;
+        rtc_wakeup_timer += 150;
     }
     rtcSTM32SetPeriodicWakeup(&RTCD1, &wakeupspec);
     rtcSetCallback(&RTCD1, NULL);
@@ -145,6 +145,7 @@ void enter_low_power_mode_prepare(void)
     {
        return;
     }
+    
     lpm_set_unused_pins_to_input_analog();    // 设置没有使用的引脚为模拟输入
     rtc_wakeup_set();
 
@@ -306,14 +307,16 @@ void lpm_task(void)
         {
 
             lmp_hal_init();
-
-            if(lowpower_matrix_task() == true)
-            {
-                break;
+            bool pressed = false;
+            for(int i = 0; i < 2; i++) {
+                if(lowpower_matrix_task()) {
+                    pressed = true;
+                    break;
+                }
             }
-            if(usb_power_connected()) 
+            if(pressed || usb_power_connected()) 
             {
-                break;
+                break; 
             }
             enter_low_power_mode_prepare();
         }
