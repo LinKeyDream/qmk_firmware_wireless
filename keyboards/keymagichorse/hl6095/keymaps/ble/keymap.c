@@ -79,7 +79,7 @@ const rgblight_segment_t* const PROGMEM _rgb_layers[] = RGBLIGHT_LAYERS_LIST(
 );
 
 void rgb_adv_unblink_all_layer(void) {
-    for (uint8_t i = 0; i < 5; i++) {
+    for (uint8_t i = 0; i < 6; i++) {
         rgblight_unblink_layer(i);
     }
 }
@@ -211,8 +211,8 @@ void lpm_device_power_open(void)
     // ws2812电源开启
     ws2812_init();
     ws2812_set_power(1);
-
 }
+
 //关闭外围设备电源
 void lpm_device_power_close(void) 
 {

@@ -19,10 +19,10 @@
 
 // 电池电压最高最低 mv
 #ifndef BATTERY_MAX_MV                       
-#    define BATTERY_MAX_MV     4150
+#    define BATTERY_MAX_MV     4100
 #endif
 #ifndef BATTERY_MIN_MV                      
-#    define BATTERY_MIN_MV     3450
+#    define BATTERY_MIN_MV     3500
 #endif
 
 // ------------------------ 电池分压电阻的配置 ------------------------
