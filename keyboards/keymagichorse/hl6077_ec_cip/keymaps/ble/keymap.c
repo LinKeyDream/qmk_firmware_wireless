@@ -174,6 +174,7 @@ void housekeeping_task_user(void)
         {
             low_led_blink_timer = timer_read32();
             low_led_sta ^= 1;
+            rgb_adv_unblink_all_layer();
             rgblight_set_layer_state(4, low_led_sta);
         }
         return;
