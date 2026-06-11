@@ -20,7 +20,7 @@
 #include "gpio.h"
 #include "debounce.h"
 #include "usb_util.h"
-#include <usb_main.h>
+#include "usb_main.h"
 #include "bhq.h"
 #include "report_buffer.h"
 #include "uart.h"
@@ -102,8 +102,8 @@ void rtc_wakeup_set(void)
 
 
 void lpm_timer_reset(void) {
-    lpm_time_up        = false;
-    lpm_timer_buffer   = 0;
+    lpm_time_up      = false;
+    lpm_timer_buffer = 0;    
     lpm_wakeup_pending = false;
     rtc_wakeup_timer   = 0;
 }
@@ -221,8 +221,9 @@ void exit_low_power_mode_prepare(void)
     // invoked in matrix_init() alloc new memory to debounce_counters */
     // debounce_free();
     matrix_init();
-
-    lpm_timer_reset();
+    
+    lpm_time_up      = false;
+    lpm_timer_buffer = 0;   
     report_buffer_init();
     bhq_init();     // uart_init
 #if defined (MOUSEKEY_ENABLE)
@@ -231,10 +232,13 @@ void exit_low_power_mode_prepare(void)
     // clear_keyboard();
     // layer_clear();
     lpm_device_power_open();    // 外围设备 电源 关闭
-  
-    gpio_write_pin_high(BHQ_INT_PIN);
-    report_keyboard_t report = {0};
-    bluetooth_send_keyboard(&report);   // 往里面填充一个空的按键包
+    
+    if(wireless_get() == WT_STATE_CONNECTED)
+    {
+        gpio_write_pin_high(BHQ_INT_PIN);
+        report_keyboard_t report = {0};
+        bluetooth_send_keyboard(&report);   // 往里面填充一个空的按键包
+    }
 }
 
 
@@ -242,7 +246,16 @@ bool lowpower_matrix_task(void)
 {
     bool any_key_pressed = false;
     matrix_row_t raw_matrix[MATRIX_ROWS];
-    any_key_pressed = ec_matrix_scan(raw_matrix);
+    ec_matrix_scan(raw_matrix);
+    for (size_t i = 0; i < MATRIX_ROWS; i++)
+    {
+        km_printf("r:%d ", raw_matrix[i]);
+        if(raw_matrix[i])
+        {
+            any_key_pressed = true;
+        }
+    }
+    
 #if defined(KB_DEBUG)
     ec_print_matrix();
 #endif
@@ -274,43 +287,35 @@ void lmp_hal_init(void)
 #endif
     ec_init();
 }
-/**
- * @brief 进入 STOP 休眠，由 RTC 定时唤醒并扫描静电容原始矩阵。
- *
- * 唤醒后调用 exit_low_power_mode_prepare() 恢复外设，然后设置
- * lpm_wakeup_pending 等待 process_record_bhq → lpm_timer_reset 的确认。
- */
 static void lpm_sleep_with_rtc_wakeup(void)
 {
     enter_low_power_mode_prepare();
+// rtc唤醒逻辑 start 
+    while(1)
+    {
 
-    // RTC 定时唤醒循环：在低功耗状态下周期扫描原始矩阵
-    while (1) {
         lmp_hal_init();
         bool pressed = false;
-        for (int i = 0; i < 2; i++) {
-            if (lowpower_matrix_task()) {
-                // 按键唤醒
-                pressed = true;
+        for(int i = 0; i < 2; i++) {
+            pressed = lowpower_matrix_task();
+            if(pressed) {
                 break;
             }
         }
-        if (pressed || usb_power_connected()) {
-            break;
+        if(pressed || usb_power_connected()) 
+        {
+            break; 
         }
         enter_low_power_mode_prepare();
     }
-
+// rtc唤醒逻辑 end 
     exit_low_power_mode_prepare();
-    // exit_low_power_mode_prepare 内部调用 lpm_timer_reset 会清零 pending
-    // 需要在此重新设置，等待 process_record_bhq 的确认
     lpm_wakeup_pending   = true;
     lpm_wakeup_timestamp = sync_timer_read32();
 }
 
 void lpm_task(void)
 {
-    // USB 已连接时：确保 USB 驱动已初始化，然后跳过所有低功耗逻辑
     if (usb_power_connected()) 
     {
         if(lpm_usb_init_flag == false)
@@ -321,21 +326,13 @@ void lpm_task(void)
             usb_event_queue_init();
             init_usb_driver(&USBD1);
             lpm_usb_init_flag   = true;
+            lpm_timer_reset();
         }
        return;
     }
 
-    // ---------- 误触超时检测 ----------
-    // 当 RTC 唤醒后，raw_matrix（未经 QMK 消抖）检测到按键会设置 lpm_wakeup_pending。
-    // 只有 process_record_bhq（QMK 消抖后的真正按键）调用 lpm_timer_reset 才會清零 pending。
-    // 若超过 LPM_FALSE_WAKEUP_TIMEOUT ms 仍未收到 lpm_timer_reset，说明是静电误触，立即重新休眠。
-    if (lpm_wakeup_pending && sync_timer_elapsed32(lpm_wakeup_timestamp) > LPM_FALSE_WAKEUP_TIMEOUT) {
-        lpm_wakeup_pending = false;
-        lpm_sleep_with_rtc_wakeup();
-        return;
-    }
 
-    // 按键缓冲区未清空，说明有数据正在发送，重置休眠计时器
+
     if(report_buffer_is_empty() == false)
     {
         lpm_time_up = false;
@@ -343,7 +340,6 @@ void lpm_task(void)
         return;
     }
 
-    // 蓝牙处于广播状态时不进入休眠
     if(wireless_get() == WT_STATE_ADV_UNPAIRED || wireless_get() == WT_STATE_ADV_PAIRING)
     {
         lpm_time_up = false;
@@ -351,17 +347,25 @@ void lpm_task(void)
         return;
     }
     
-    // 开始计时：记录进入空闲模式的起始时间
     if(lpm_time_up == false && lpm_timer_buffer == 0)
     {
         lpm_time_up = true;
         lpm_timer_buffer = sync_timer_read32();
     }
 
-    // 空闲超时，进入低功耗 STOP 模式
     if (lpm_time_up == true && sync_timer_elapsed32(lpm_timer_buffer) > RUN_MODE_PROCESS_TIME) {
         lpm_time_up = false;
         lpm_timer_buffer = 0;
+        lpm_sleep_with_rtc_wakeup();
+    }
+    // ---------- 误触超时检测 ----------
+    // 当 RTC 唤醒后，raw_matrix（未经 QMK 消抖）检测到按键会设置 lpm_wakeup_pending。
+    // 只有 process_record_bhq（QMK 消抖后的真正按键）调用 lpm_timer_reset 才會清零 pending。
+    // 若超过 LPM_FALSE_WAKEUP_TIMEOUT ms 仍未收到 lpm_timer_reset，说明是静电误触，立即重新休眠。
+    if(lpm_wakeup_pending == true && sync_timer_elapsed32(lpm_wakeup_timestamp) > LPM_FALSE_WAKEUP_TIMEOUT)
+    {
+        lpm_wakeup_pending   = false;
+        lpm_wakeup_timestamp = 0;
         lpm_sleep_with_rtc_wakeup();
     }
 }
