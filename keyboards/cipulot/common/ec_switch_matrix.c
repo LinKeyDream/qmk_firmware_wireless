@@ -296,7 +296,7 @@ uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col) {
 
     // Set the row pin to low state to avoid ghosting
     gpio_write_pin_low(row_pins[row]);
-
+    (void)adc_read(adcMux);
     ATOMIC_BLOCK_FORCEON {
         // Set the row pin to high state and have capacitor charge
         charge_capacitor(row);
@@ -309,7 +309,7 @@ uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col) {
     discharge_capacitor();
     // Waiting for the ghost capacitor to discharge fully
     wait_us(DISCHARGE_TIME);
-
+    (void)adc_read(adcMux);
     int16_t filtered = ec_filter_update(&ec_key_filter[row][col], sw_value);
 
     return filtered;
