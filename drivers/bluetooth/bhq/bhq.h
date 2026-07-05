@@ -54,13 +54,15 @@ enum {
 // -------------------- bhq protocol Small terminal mode --------------------
 
 // Module operating status and qmk have the level status of data transmission       
-#define BHQ_RUN_OR_INT_LEVEL       1             
-#ifndef BHQ_IQR_PIN
-#    error "BHQ_IQR_PIN is not defined"
-#endif
-#ifndef BHQ_INT_PIN
-#    error "BHQ_INT_PIN is not defined"
-#endif
+#define BHQ_RUN_OR_INT_LEVEL       1
+
+// #ifndef BHQ_IQR_PIN
+// #    warning "BHQ_IQR_PIN is not defined (not required for BHQ firmware >= 226)"
+// #endif
+
+// #ifndef BHQ_INT_PIN
+// #    warning "BHQ_INT_PIN is not defined (not required for BHQ firmware >= 226)"
+// #endif
 
 
 void bhq_init(void);
@@ -73,7 +75,8 @@ void bhq_SetPairingMode(uint8_t host_index, uint16_t timeout_1S);
 void bhq_OpenBleAdvertising(uint8_t host_index, uint16_t timeout_1S);
 void bhq_AnewOpenBleAdvertising(uint8_t host_index, uint16_t timeout_1S);
 void bhq_CloseBleAdvertising(void);
-void bhq_switch_rf_easy_kb(void);
+void bhq_switch_rf_easy_kb(uint8_t host_index,uint16_t timeout_1S);
+void bhq_switch_rf_easy_kb_pair(uint8_t host_index,uint16_t timeout_1S);
 void bhq_update_battery_percent(uint8_t percent, uint16_t bat_mv);
 
 

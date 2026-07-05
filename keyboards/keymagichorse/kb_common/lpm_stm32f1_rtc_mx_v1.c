@@ -45,17 +45,15 @@ rtc_sleep_mode_enum ret_sleep_mode = RTC_LIGHT_SLEEP_MODE;
     static const pin_t wakeUpRow_pins[MATRIX_ROWS] = MATRIX_ROW_PINS;
 #endif
 
-void ws2812power_enabled(void);
-void ws2812power_Disabled(void);
-
 void lpm_timer_reset(void) {
     lpm_time_up      = false;
     lpm_timer_buffer = 0;
 }
 
-
-__attribute__((weak)) void lpm_device_power_open(void) ;
-__attribute__((weak)) void lpm_device_power_close(void) ;
+__attribute__((weak)) void lpm_device_power_open(void) {}
+__attribute__((weak)) void lpm_device_power_close(void) {}
+// 将未使用的引脚设置为输入模拟
+__attribute__((weak)) void lpm_set_unused_pins_to_input_analog(void){}
 
 RTCDateTime timespec;
 RTCAlarm alarmspec;
@@ -98,7 +96,9 @@ void lpm_init(void)
 
     lpm_timer_reset();
 
+#ifdef BHQ_INT_PIN
     gpio_write_pin_high(BHQ_INT_PIN);
+#endif
 
 // usb
     gpio_set_pin_input(USB_POWER_SENSE_PIN);
@@ -107,20 +107,7 @@ void lpm_init(void)
     lpm_device_power_open();
     rtc_wakeup_set(RTC_LIGHT_SLEEP_MODE);
 }
-__attribute__((weak)) void lpm_device_power_open(void) 
-{
-   
-}
-__attribute__((weak)) void lpm_device_power_close(void) 
-{
-   
-}
 
-// 将未使用的引脚设置为输入模拟
-__attribute__((weak)) void lpm_set_unused_pins_to_input_analog(void)
-{
-
-}
 
 void My_PWR_EnterSTOPMode(void)
 {
@@ -175,9 +162,13 @@ void enter_low_power_mode_prepare(void)
     EXTI->RTSR |= EXTI_RTSR_TR17;    // 必须上升沿触发
 // rtc唤醒
 
+#ifdef BHQ_IQR_PIN
     gpio_set_pin_input_low(BHQ_IQR_PIN);
     palEnableLineEvent(BHQ_IQR_PIN, PAL_EVENT_MODE_RISING_EDGE);
+#endif
+#ifdef BHQ_INT_PIN
     gpio_write_pin_low(BHQ_INT_PIN);
+#endif
 
 // usb 插入检测
     gpio_set_pin_input(USB_POWER_SENSE_PIN);
@@ -228,7 +219,9 @@ void exit_low_power_mode_prepare(void)
 #endif
     // clear_keyboard();
     // layer_clear();
-    bhq_common_init();
+#ifdef BHQ_INT_PIN
+    gpio_write_pin_high(BHQ_INT_PIN);
+#endif
 
     lpm_device_power_open();    // 外围设备 电源 关闭
   

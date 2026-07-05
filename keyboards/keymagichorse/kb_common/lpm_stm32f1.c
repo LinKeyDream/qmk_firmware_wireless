@@ -52,7 +52,9 @@ void lpm_init(void)
 
     lpm_timer_reset();
 
+#ifdef BHQ_INT_PIN
     gpio_write_pin_high(BHQ_INT_PIN);
+#endif
 
 // usb
     gpio_set_pin_input(USB_POWER_SENSE_PIN);
@@ -112,9 +114,13 @@ void enter_low_power_mode_prepare(void)
     matrix_sleepConfig();
 
 
+#ifdef BHQ_IQR_PIN
     gpio_set_pin_input_low(BHQ_IQR_PIN);
     palEnableLineEvent(BHQ_IQR_PIN, PAL_EVENT_MODE_RISING_EDGE);
+#endif
+#ifdef BHQ_INT_PIN
     gpio_write_pin_low(BHQ_INT_PIN);
+#endif
 
 // usb 插入检测
     gpio_set_pin_input(USB_POWER_SENSE_PIN);
@@ -166,7 +172,9 @@ void enter_low_power_mode_prepare(void)
     bhq_init();     // uart_init
 
     clear_keyboard();
-    layer_clear();
+#ifdef BHQ_INT_PIN
+    gpio_write_pin_high(BHQ_INT_PIN);
+#endif
 
     lpm_device_power_open();    // 外围设备 电源 关闭
   

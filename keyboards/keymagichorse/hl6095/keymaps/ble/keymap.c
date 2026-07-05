@@ -123,6 +123,10 @@ void wireless_rf24g_hanlde_kb(uint8_t connectSta,uint8_t pairingSta)
     wireless_update_led_block_timer = timer_read32();
     rgblight_disable_noeeprom();
     rgb_adv_unblink_all_layer();
+    if(connectSta == 0 && pairingSta == 1)
+    {
+        rgblight_blink_layer_repeat(5 , 200, 100);
+    }
     if(connectSta == 1)
     {
         rgblight_blink_layer_repeat(5 , 200, 2);

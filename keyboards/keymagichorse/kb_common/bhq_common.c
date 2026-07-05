@@ -66,7 +66,8 @@ static uint8_t key_ble_host_index = 0;         // 蓝牙索引
 
 // 按键切换主机逻辑
 bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
-# if defined(KB_CHECK_BATTERY_ENABLED)
+    km_printf("process_record_bhq\n");
+# if defined(KB_CHECK_BATTER_ENABLED)
     battery_reset_timer();
 #endif
 #   if defined(KB_LPM_ENABLED)
@@ -101,7 +102,7 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
     }
     // km_printf("keycode:%d %d\n",keycode,record->event.pressed);
     // 蓝牙模式点按
-    if(keycode == BLE_SW1 || keycode == BLE_SW2 || keycode == BLE_SW3)
+    if(keycode == BLE_SW1 || keycode == BLE_SW2 || keycode == BLE_SW3 || keycode == RF_TOG)
     {
         if(record->event.pressed)
         {   // 赋值 并记录当前时间
@@ -114,27 +115,38 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
             {
                 switch (keycode)
                 {
+                    case RF_TOG:
+                        key_ble_host_index = 0;
+                        key_ble_host_index = 0;
+                        bhq_switch_rf_easy_kb(key_ble_host_index, 30);
+                        transport_set(KB_TRANSPORT_RF);  
+                        break;  
                     case BLE_SW1:
                         key_ble_host_index = 0;
+                        // 打开非配对模式蓝牙广播 10 = 10S
+                        bhq_OpenBleAdvertising(key_ble_host_index, 30);
+                        transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
                         break;  
                     case BLE_SW2:
                         key_ble_host_index = 1;
+                        // 打开非配对模式蓝牙广播 10 = 10S
+                        bhq_OpenBleAdvertising(key_ble_host_index, 30);
+                        transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
                         break;  
                     case BLE_SW3:
                         key_ble_host_index = 2;
+                        // 打开非配对模式蓝牙广播 10 = 10S
+                        bhq_OpenBleAdvertising(key_ble_host_index, 30);
+                        transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
                         break;  
                 }
                 // km_printf("key short down:bleid->%d\n",key_ble_host_index);
-                // 打开非配对模式蓝牙广播 10 = 10S
-                bhq_OpenBleAdvertising(key_ble_host_index, 30);
-                transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
             }
             this_down_wireless_keycode = 0;
             down_wirlees_keycode_time = 0;
         }
         return true;
     }
-
 
     switch (keycode)
     {
@@ -149,15 +161,7 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
             }
             return true;
         }
-        case RF_TOG:
-        {
-            if(!record->event.pressed)
-            {
-                bhq_switch_rf_easy_kb();
-                transport_set(KB_TRANSPORT_RF);  
-            }
-            return true;
-        }
+
         case USB_TOG:
         {
             if(!record->event.pressed)
@@ -191,27 +195,41 @@ void bhq_switch_host_task(void){
     // 蓝牙模式长按的
     if (this_down_wireless_keycode == BLE_SW1 ||
         this_down_wireless_keycode == BLE_SW2 ||
-        this_down_wireless_keycode == BLE_SW3)
+        this_down_wireless_keycode == BLE_SW3 ||
+        this_down_wireless_keycode == RF_TOG 
+    )
     {
         if (!has_switched && timer_elapsed32(down_wirlees_keycode_time) >= 1000)
         {
             has_switched = true;  // 标志位，用于只执行一次
+            km_printf("key long down:bleid->%d\n",key_ble_host_index);
             switch (this_down_wireless_keycode)
             {
+                case RF_TOG:
+                    key_ble_host_index = 0;
+                    key_ble_host_index = 0;
+                    bhq_switch_rf_easy_kb_pair(key_ble_host_index, 30);
+                    transport_set(KB_TRANSPORT_RF);  
+                    break;  
                 case BLE_SW1:
                     key_ble_host_index = 0;
+                    // 打开配对广播
+                    bhq_SetPairingMode(key_ble_host_index, 30);
+                    transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
                     break;
                 case BLE_SW2:
                     key_ble_host_index = 1;
+                    // 打开配对广播
+                    bhq_SetPairingMode(key_ble_host_index, 30);
+                    transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
                     break;
                 case BLE_SW3:
                     key_ble_host_index = 2;
+                    // 打开配对广播
+                    bhq_SetPairingMode(key_ble_host_index, 30);
+                    transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
                     break;
             }
-            km_printf("key long down:bleid->%d\n",key_ble_host_index);
-            // 打开配对广播
-            bhq_SetPairingMode(key_ble_host_index, 30);
-            transport_set(key_ble_host_index + KB_TRANSPORT_BLUETOOTH_1);  
         }
     }
     else
