@@ -51,10 +51,24 @@ typedef struct {
     uint16_t bottoming_reading[MATRIX_ROWS][MATRIX_COLS];                       // bottoming reading
 } ec_config_t;
 
-typedef struct
-{
-	int16_t filtered;
-	uint8_t initialized;
+// ============================================================================
+// 中值滤波配置 (Median Filter Configuration)
+// 可在键盘 config.h 中覆写以下宏以调整滤波参数
+// ============================================================================
+
+// 中值滤波窗口大小 (Median filter window size: 3, 4, or 5)
+#ifndef EC_MEDIAN_WINDOW
+#    define EC_MEDIAN_WINDOW 5
+#endif
+_Static_assert(EC_MEDIAN_WINDOW >= 3 && EC_MEDIAN_WINDOW <= 5, "EC_MEDIAN_WINDOW must be 3, 4, or 5");
+
+// 滤波器状态结构体
+// RAM 占用(含PACKED): 窗口3=7B/键, 窗口4=9B/键, 窗口5=11B/键
+// 100键参考: 窗口3=700B, 窗口4=900B, 窗口5=1100B
+typedef struct PACKED {
+    uint16_t samples[EC_MEDIAN_WINDOW - 1]; // 中值滤波历史采样 (当前采样不入库, 运算时拼接)
+    uint16_t filtered;                       // EMA 平滑输出值
+    uint8_t  state;                          // bit0: 已初始化
 } ec_key_filter_t;
 
 // Check if the size of the reserved persistent memory is the same as the size of struct eeprom_ec_config_t
@@ -75,7 +89,7 @@ void charge_capacitor(uint8_t row);
 int      ec_init(void);
 void     ec_noise_floor(void);
 bool     ec_matrix_scan(matrix_row_t current_matrix[]);
-uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col);
+uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col, uint8_t adjusted_col);
 bool     ec_update_key(matrix_row_t* current_row, uint8_t row, uint8_t col, uint16_t sw_value);
 void     ec_print_matrix(void);
 
