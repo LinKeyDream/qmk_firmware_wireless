@@ -259,9 +259,6 @@ bool ec_matrix_scan(matrix_row_t current_matrix[]) {
         matrix_debug_timer = timer_read32();
         ec_print_matrix();
     }
-    if (temp_sw_value && temp_ff_sw_value) {
-        uprintf("k1[r2c0]:%d,%d\n",temp_sw_value,temp_ff_sw_value);
-    }
     return ec_config.bottoming_calibration ? false : updated;
 }
 
@@ -322,12 +319,23 @@ static inline uint16_t ec_filter_update(ec_key_filter_t *f, uint16_t raw) {
     int16_t diff     = (int16_t)med - (int16_t)f->filtered;
     int16_t abs_diff = (diff < 0) ? -diff : diff;
 
+    int16_t step;
     if (abs_diff < 200) {
         // 小偏差 -> 慢速滤波 (抑制底噪抖动)
-        f->filtered += diff >> 1;
+        step = diff >> 1;
     } else {
         // 大偏差 -> 超快响应 (~90.9% 跟随率, 等效 /1.1)
-        f->filtered += (diff * 29) >> 5;
+        step = (diff * 29) >> 5;
+    }
+
+    // 先算出完整滤波结果
+    f->filtered += step;
+
+    // 死区: 步长太小时回滚, 防止底噪小幅度抖动
+    int16_t abs_step = (step < 0) ? -step : step;
+    if (abs_step <= EC_DEAD_ZONE) {
+        f->filtered -= step;   // 回滚
+        return f->filtered;    // 返回旧值
     }
 
     return f->filtered;
@@ -358,12 +366,7 @@ uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col, uint8_t adjus
     wait_us(DISCHARGE_TIME);
     (void)adc_read(adcMux);
 
-    uint16_t filtered = ec_filter_update(&ec_key_filter[row][col], sw_value);
-    if(row == 2 && adjusted_col == 0)
-    {
-        temp_sw_value = sw_value;
-        temp_ff_sw_value = filtered;
-    }
+    uint16_t filtered = ec_filter_update(&ec_key_filter[row][adjusted_col], sw_value);
     return filtered;
 }
 

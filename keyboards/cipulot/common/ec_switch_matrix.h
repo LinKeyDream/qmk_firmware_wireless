@@ -58,8 +58,13 @@ typedef struct {
 
 // 中值滤波窗口大小 (Median filter window size: 3, 4, or 5)
 #ifndef EC_MEDIAN_WINDOW
-#    define EC_MEDIAN_WINDOW 5
+#    define EC_MEDIAN_WINDOW 3
 #endif
+
+#ifndef EC_DEAD_ZONE
+#    define EC_DEAD_ZONE 5
+#endif
+
 _Static_assert(EC_MEDIAN_WINDOW >= 3 && EC_MEDIAN_WINDOW <= 5, "EC_MEDIAN_WINDOW must be 3, 4, or 5");
 
 // 滤波器状态结构体
