@@ -170,8 +170,7 @@ int ec_init(void) {
 
     return 0;
 }
-uint16_t temp_sw_value = 0;
-uint16_t temp_ff_sw_value = 0;
+
 // Get the noise floor
 void ec_noise_floor(void) {
 #ifdef OPAMP_EN_PIN

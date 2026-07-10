@@ -111,7 +111,7 @@
 void board_init(void) 
 {
 #if defined(BLUETOOTH_BHQ)
-    // bhq_common_init();
+    bhq_common_init();
 #   if defined(KB_LPM_ENABLED)
     lpm_init();
 #   endif

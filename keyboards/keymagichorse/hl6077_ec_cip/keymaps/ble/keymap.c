@@ -159,7 +159,6 @@ void keyboard_post_init_user(void)
     rgblight_disable();
     rgblight_layers = _rgb_layers;  // 层灯光赋值
     rgb_adv_unblink_all_layer();
-    bhq_common_init();
 }
 
 void housekeeping_task_user(void) 
