@@ -28,6 +28,7 @@
 #include "matrix_sleep.h"
 #include "bluetooth.h"
 #include "ec_switch_matrix.h"
+#include "analog.h"
 # if defined(KB_CHECK_BATTERY_ENABLED)
 #   include "battery.h"
 #endif
@@ -187,6 +188,8 @@ void enter_low_power_mode_prepare(void)
     usbDisconnectBus(&USBD1);
 
     bhq_Disable();
+    // 关闭ADC外设，降低STOP模式功耗，并同步 adcInitialized[] 标志
+    adc_stop_all();
     lpm_device_power_close();    // 外围设备 电源 关闭
     My_PWR_EnterSTOPMode();
 
@@ -207,6 +210,10 @@ void exit_low_power_mode_prepare(void)
         stInit();
         timer_init();   
     chSysUnlock();
+
+    // halInit()→adcInit() 已重置ADC驱动状态为ADC_STOP，
+    // 需同步 adcInitialized[] 标志，使后续 adc_read() 能正确调用 adcStart()
+    adc_stop_all();
 
     /*  USB D+/D- */
     palSetLineMode(A11, PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST | PAL_STM32_PUPDR_FLOATING | PAL_MODE_ALTERNATE(10U));
@@ -291,6 +298,9 @@ void lmp_hal_init(void)
         stInit();
         timer_init();
     chSysUnlock();
+    // adcInit() 已重置ADC驱动状态为ADC_STOP，需同步 adcInitialized[] 标志，
+    // 防止 enter_low_power_mode_prepare() 提前返回(USB插入)时标志不同步
+    adc_stop_all();
 #if defined(KB_DEBUG)
     bhq_init();
 #endif

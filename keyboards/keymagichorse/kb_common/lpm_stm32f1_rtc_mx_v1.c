@@ -28,6 +28,10 @@
 #include "bluetooth.h"
 #include "matrix_sleep.h"
 
+#if HAL_USE_ADC
+#    include "analog.h"
+#endif
+
 static uint32_t     lpm_timer_buffer = 0;
 static bool         lpm_time_up               = false;
 bool is_lpm_via_activity_flag = false;
@@ -186,6 +190,9 @@ void enter_low_power_mode_prepare(void)
     palSetLineMode(A12, PAL_MODE_INPUT_ANALOG); 
 
     bhq_Disable();
+#if HAL_USE_ADC
+    adc_stop_all();
+#endif
     lpm_device_power_close();    // 外围设备 电源 关闭
     My_PWR_EnterSTOPMode();
 
@@ -199,6 +206,11 @@ void exit_low_power_mode_prepare(void)
         stInit();
         timer_init();
     chSysUnlock();
+
+#if HAL_USE_ADC
+    // halInit()→adcInit() 重置了ADC驱动状态，需同步 adcInitialized[] 标志
+    adc_stop_all();
+#endif
 
     /*  USB D+/D- */
     palSetLineMode(A11, PAL_MODE_STM32_ALTERNATE_PUSHPULL);  

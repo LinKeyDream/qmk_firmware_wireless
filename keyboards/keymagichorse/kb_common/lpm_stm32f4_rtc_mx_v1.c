@@ -30,6 +30,9 @@
 # if defined(KB_CHECK_BATTERY_ENABLED)
 #   include "battery.h"
 #endif
+#if HAL_USE_ADC
+#    include "analog.h"
+#endif
 
 static uint32_t     lpm_timer_buffer    = 0;
 static bool         lpm_time_up         = false;
@@ -177,6 +180,9 @@ void enter_low_power_mode_prepare(void)
     usbDisconnectBus(&USBD1);
 
     bhq_Disable();
+#if HAL_USE_ADC
+    adc_stop_all();
+#endif
     lpm_device_power_close();    // 外围设备 电源 关闭
     My_PWR_EnterSTOPMode();
 
@@ -198,6 +204,11 @@ void exit_low_power_mode_prepare(void)
         stInit();
         timer_init();
     chSysUnlock();
+
+#if HAL_USE_ADC
+    // halInit()→adcInit() 重置了ADC驱动状态，需同步 adcInitialized[] 标志
+    adc_stop_all();
+#endif
 
     /*  USB D+/D- */
     palSetLineMode(A11, PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST | PAL_STM32_PUPDR_FLOATING | PAL_MODE_ALTERNATE(10U));

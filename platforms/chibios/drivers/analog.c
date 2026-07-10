@@ -418,6 +418,21 @@ void adc_stop(adc_mux mux) {
     }
 }
 
+// Stop all initialized ADC drivers and reset their initialization flags.
+// Call this before entering low-power STOP mode to ensure the ADC peripheral
+// is properly shut down and adcInitialized[] stays in sync with driver state.
+void adc_stop_all(void) {
+    for (uint8_t i = 0; i < ADC_COUNT; i++) {
+        if (adcInitialized[i]) {
+            ADCDriver* targetDriver = intToADCDriver(i);
+            if (targetDriver) {
+                adcStop(targetDriver);
+            }
+            adcInitialized[i] = false;
+        }
+    }
+}
+
 int16_t adc_read(adc_mux mux) {
 #if defined(USE_ADCV1)
     // TODO: fix previous assumption of only 1 input...
@@ -443,12 +458,13 @@ int16_t adc_read(adc_mux mux) {
         return 0;
     }
 
+    // ADC stays in READY state between reads for performance.
+    // Use adc_stop_all() before entering low-power modes.
     manageAdcInitializationDriver(mux.adc, targetDriver);
     if (adcConvert(targetDriver, &adcConversionGroup, &sampleBuffer[0], ADC_BUFFER_DEPTH) != MSG_OK) {
         adc_stop(mux);
         return 0;
     }
-    adc_stop(mux);
 #if ADC_BUFFER_DEPTH == 3
     // 这里就做两次平均 不会爆了int16_t 免得用u32还得多了转换过程
     int16_t adc_average = 0;
