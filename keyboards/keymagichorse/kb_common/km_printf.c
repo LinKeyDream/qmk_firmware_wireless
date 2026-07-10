@@ -31,9 +31,10 @@ void km_printf_init(void)
 #if defined(KB_DEBUG_RTT)
     SEGGER_RTT_Init();
 #elif defined(KB_DEBUG_UART_BHQ)
-    // BHQ 驱动已含
-    print_set_sendchar(km_putchar);
-    uprintf("\r\nHello world!1\r\n");
+    // BHQ 驱动已含 UART 初始化
+    // 不需要在这里调用 print_set_sendchar(km_putchar)
+    // 因为下方定义了 strong sendchar()，QMK 的 keyboard_setup()
+    // 会自动调用 print_set_sendchar(sendchar) 使用我们的实现
 #endif
 }
 
@@ -46,6 +47,23 @@ int8_t km_putchar(uint8_t c)
 #endif
     return 0;
 }
+
+/*
+ * 覆写 QMK 的 weak sendchar()，使 uprintf/print 自动路由到调试输出。
+ *
+ * 原理：QMK 的 keyboard_setup() 会执行 print_set_sendchar(sendchar)，
+ * 此时 sendchar 是我们的 strong 定义，而非 weak 默认空实现。
+ * 因此无论在 board_init() 还是 keyboard_post_init_user() 中调用
+ * km_printf_init()，都不会被覆盖。
+ *
+ * 用 !CONSOLE_ENABLE 保护：如果使能了 USB Console，usb_main.c 中已有
+ * strong sendchar()，避免重复定义链接冲突。
+ */
+#if defined(KB_DEBUG) && !defined(CONSOLE_ENABLE)
+int8_t sendchar(uint8_t c) {
+    return km_putchar(c);
+}
+#endif
 
 int km_printf(const char* format, ...) {
 #if defined(KB_DEBUG)

@@ -171,7 +171,6 @@ void BHQ_Protocol_Process_user(uint8_t *dat, uint16_t length)
             BHQ_wireless_state_handle(cmdid, &dat[4]);
 #   if defined(KB_LPM_ENABLED)
     lpm_timer_reset();  // 这里用于低功耗，刷新低功耗计时器
-    lpm_via_activity_update();
 #endif
             break;
         case 0x27:  // RAW数据

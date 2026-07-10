@@ -444,13 +444,13 @@ bool ec_update_key(matrix_row_t* current_row, uint8_t row, uint8_t col, uint16_t
 
 // Print the matrix values
 void ec_print_matrix(void) {
-    // for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
-    //     for (uint8_t col = 0; col < MATRIX_COLS - 1; col++) {
-    //         uprintf("%4d,", sw_value[row][col]);
-    //     }
-    //     uprintf("%4d\n", sw_value[row][MATRIX_COLS - 1]);
-    // }
-    // print("\n");
+    for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
+        for (uint8_t col = 0; col < MATRIX_COLS - 1; col++) {
+            uprintf("%4d,", sw_value[row][col]);
+        }
+        uprintf("%4d\n", sw_value[row][MATRIX_COLS - 1]);
+    }
+    print("\n");
 }
 
 // Check if the position is unused

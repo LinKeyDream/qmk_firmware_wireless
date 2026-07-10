@@ -62,24 +62,43 @@ ifeq ($(strip $(BLUETOOTH_DRIVER)), bhq)
     ifeq ($(strip $(KB_LPM_ENABLED)), yes)
         OPT_DEFS += -DKB_LPM_ENABLED
         OPT_DEFS += -DKB_LPM_DRIVER
-        
+
+        # ---- 芯片系列选择（根据驱动名自动解析） ----
+        ifneq (,$(findstring stm32f4,$(KB_LPM_DRIVER)))
+            OPT_DEFS += -DLPM_CHIP_STM32F4
+        endif
+        ifneq (,$(findstring stm32f1,$(KB_LPM_DRIVER)))
+            OPT_DEFS += -DLPM_CHIP_STM32F1
+        endif
+        ifneq (,$(findstring at32,$(KB_LPM_DRIVER)))
+            OPT_DEFS += -DLPM_CHIP_AT32
+        endif
+
+        # ---- 功能选择（根据驱动名自动解析） ----
+        # RTC 周期性唤醒（休眠中定时轮询按键）
+        ifneq (,$(findstring rtc,$(KB_LPM_DRIVER)))
+            OPT_DEFS += -DLPM_RTC_WAKEUP
+        endif
+        # EC 静电容矩阵（使用 ADC 扫描，需要 lpm_hal_init）
+        ifneq (,$(findstring _ec,$(KB_LPM_DRIVER)))
+            OPT_DEFS += -DLPM_EC_MATRIX
+        endif
+
         # 矩阵唤醒方式
         VPATH += ${KB_COMMON_DIR}/matrix/matrix_type
         VPATH += ${KB_COMMON_DIR}/matrix/matrix_sleep
         ifeq ($(strip $(MATRIX_TYPE)), default)
-            ifeq ($(strip $(KB_LPM_DRIVER)), lpm_at32f415)
+            ifneq (,$(findstring at32,$(KB_LPM_DRIVER)))
                 SRC+= kb_common/matrix/matrix_sleep/matrix_sleep_${MATRIX_TYPE}_at32.c
-            endif
-
-            ifneq ($(filter $(KB_LPM_DRIVER), lpm_stm32f4 lpm_stm32f1_rtc_mx_v1 lpm_stm32f4_rtc_mx_v1 lpm_stm32f1),)
+            else
                 SRC+= kb_common/matrix/matrix_sleep/matrix_sleep_${MATRIX_TYPE}_stm32.c
             endif
         else
             SRC+= kb_common/matrix/matrix_sleep/matrix_sleep_${MATRIX_TYPE}.c
         endif
-        # 矩阵唤醒方式选择
 
-        SRC += kb_common/${KB_LPM_DRIVER}.c
+        # 统一 LPM 核心实现（替代原先分散的 lpm_stm32f4.c / lpm_stm32f1.c / ...）
+        SRC += kb_common/lpm_core.c
     endif
     # 低功耗 end
 
