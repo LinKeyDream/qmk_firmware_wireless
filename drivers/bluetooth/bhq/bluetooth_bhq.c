@@ -130,7 +130,7 @@ void bluetooth_bhq_send_nkro(report_nkro_t *report)
 {
     bool firstBuffer = false;
 
-    if (report_buffer_is_empty() && report_buffer_next_inverval()) {
+    if (report_buffer_is_empty() && report_buffer_next_inverval() && report_buffer_get_retry() == 0) {
         firstBuffer = true;
     }
 

@@ -125,6 +125,9 @@ void battery_task(void) {
     }
     if (battery_ble_update_en && timer_elapsed32(battery_report_timer) > 2500) {
         battery_report_timer = timer_read32();
+        if (usb_power_connected()) {
+            return ;
+        }
         battery_percent_update_wireless();
     }
 }

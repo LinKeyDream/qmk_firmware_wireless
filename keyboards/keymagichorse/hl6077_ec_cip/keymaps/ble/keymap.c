@@ -33,20 +33,20 @@ led_t kb_led_state = {0};
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   [0] = LAYOUT(
         QK_GESC, KC_1,    KC_2,     KC_3,     KC_4,    KC_5,    KC_6,    KC_7,    KC_8,      KC_9,     KC_0,     KC_MINS,  KC_EQL,  KC_BSPC,
-        KC_TAB,  KC_Q,    KC_W,     KC_E,     KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,      KC_O,     KC_P,     KC_LBRC,  KC_RBRC, KC_BSLS,
-        KC_CAPS, KC_A,    KC_S,     KC_D,     KC_F,    KC_G,    KC_H,    KC_J,    KC_K,      KC_L,     KC_SCLN,  KC_QUOT,  KC_BSLS, KC_ENT,
-        KC_LSFT, KC_Z,    KC_X,     KC_C,     KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM,   KC_DOT,   KC_SLSH,  KC_RSFT,  KC_BSPC, 
-        KC_LCTL, KC_LGUI, KC_LALT,            KC_SPC,           KC_SPC,  KC_SPC,  MO(1),     KC_UP,    KC_DOWN,  KC_LEFT,  KC_RIGHT),
+        KC_TAB,  KC_Q,    KC_W,     KC_E,     KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,      KC_O,     KC_P,     KC_LBRC,  KC_RBRC, KC_ENT,
+        KC_CAPS, KC_A,    KC_S,     KC_D,     KC_F,    KC_G,    KC_H,    KC_J,    KC_K,      KC_L,     KC_SCLN,  KC_QUOT,  KC_ENT,  KC_BSLS,
+        KC_LSFT, KC_Z,    KC_X,     KC_C,     KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM,   KC_DOT,   KC_SLSH,  KC_RSFT,  KC_UP, 
+        KC_LCTL, KC_LGUI, KC_LALT,  KC_SPC,   LT(2, KC_SPC),  KC_SPC,             MO(1),     KC_DEL,   KC_LEFT,  KC_RIGHT, KC_DOWN),
   [1] = LAYOUT(
         KC_GRV , KC_F1,   KC_F2,   KC_F3,    KC_F4,   KC_F5,   KC_F6,   KC_F7,    KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,  KC_DEL,
         KC_TRNS, BLE_SW1, BLE_SW2, BLE_SW3,  RF_TOG,  KC_TRNS, KC_TRNS, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
         KC_TRNS, USB_TOG, NK_TOGG, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
         KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, 
-        KC_LCTL, KC_LGUI, KC_LALT,           KC_SPC,           KC_SPC,  KC_SPC,   MO(1),   KC_VOLU, KC_VOLD, KC_BRIU, KC_BRID),
+        KC_LCTL, KC_LGUI, KC_LALT,           KC_TRNS,           KC_SPC,  KC_SPC,   MO(1),   KC_VOLU, KC_VOLD, KC_BRIU, KC_BRID),
   [2] = LAYOUT(
 		KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
-		KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
-		KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+		KC_TRNS, KC_TRNS, KC_UP,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+		KC_TRNS, KC_LEFT, KC_DOWN, KC_RIGHT, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
 		KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
 		KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS),
   [3] = LAYOUT(
@@ -70,13 +70,14 @@ const rgblight_segment_t PROGMEM bt_conn2[]   = RGBLIGHT_LAYER_SEGMENTS( {0, 1, 
 const rgblight_segment_t PROGMEM bt_conn3[]   = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_ORANGE} );    // 通道3：橙色
 const rgblight_segment_t PROGMEM caps_lock_[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_PURPLE} );    // 大小写：紫色
 const rgblight_segment_t PROGMEM bat_low_led[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_RED} );      // 低电量：红色
+const rgblight_segment_t PROGMEM rf24g_led[] = RGBLIGHT_LAYER_SEGMENTS( {0, 1, HSV_YELLOW} );       // 24g：黄色
 
 const rgblight_segment_t* const PROGMEM _rgb_layers[] = RGBLIGHT_LAYERS_LIST( 
-    bt_conn1, bt_conn2, bt_conn3, caps_lock_, bat_low_led
+    bt_conn1, bt_conn2, bt_conn3, caps_lock_, bat_low_led, rf24g_led
 );
 
 void rgb_adv_unblink_all_layer(void) {
-    for (uint8_t i = 0; i < 4; i++) {
+    for (uint8_t i = 0; i < 6; i++) {
         rgblight_unblink_layer(i);
     }
 }
@@ -111,10 +112,7 @@ void wireless_ble_hanlde_kb(uint8_t host_index,uint8_t advertSta,uint8_t connect
     // 蓝牙已连接
     if(connectSta == 1)
     {
-        report_buffer_clear();
-        layer_clear();
         rgblight_blink_layer_repeat(host_index , 200, 2);
-        km_printf("if 3\n");
     }
 }
 void wireless_rf24g_hanlde_kb(uint8_t connectSta,uint8_t pairingSta)
@@ -125,10 +123,7 @@ void wireless_rf24g_hanlde_kb(uint8_t connectSta,uint8_t pairingSta)
     rgb_adv_unblink_all_layer();
     if(connectSta == 1)
     {
-        report_buffer_clear();
-        layer_clear();
-        rgblight_blink_layer_repeat(3 , 200, 2);
-        km_printf("if 3\n");
+        rgblight_blink_layer_repeat(5 , 200, 2);
     }
 }
 #endif
@@ -164,7 +159,6 @@ void keyboard_post_init_user(void)
     rgblight_disable();
     rgblight_layers = _rgb_layers;  // 层灯光赋值
     rgb_adv_unblink_all_layer();
-    bhq_common_init();
 }
 
 void housekeeping_task_user(void) 
@@ -179,6 +173,7 @@ void housekeeping_task_user(void)
         {
             low_led_blink_timer = timer_read32();
             low_led_sta ^= 1;
+            rgb_adv_unblink_all_layer();
             rgblight_set_layer_state(4, low_led_sta);
         }
         return;
@@ -214,8 +209,7 @@ void lpm_device_power_open(void)
 #if defined(RGBLIGHT_WS2812) && defined(RGBLIGHT_ENABLE) 
     // ws2812电源开启
     ws2812_init();
-    gpio_set_pin_output(WS2812_POWER_PIN);        // ws2812 power
-    gpio_write_pin_low(WS2812_POWER_PIN);
+    ws2812_set_power(1);
 #endif
 
 }
@@ -225,8 +219,7 @@ void lpm_device_power_close(void)
 #if defined(RGBLIGHT_WS2812) && defined(RGBLIGHT_ENABLE) 
     // ws2812电源关闭
     rgblight_setrgb_at(0, 0, 0, 0);
-    gpio_set_pin_output(WS2812_POWER_PIN);        // ws2812 power
-    gpio_write_pin_high(WS2812_POWER_PIN);
+    ws2812_set_power(0);
 
     gpio_set_pin_output(WS2812_DI_PIN);        // ws2812 DI Pin
     gpio_write_pin_low(WS2812_DI_PIN);

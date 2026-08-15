@@ -27,8 +27,12 @@ uint32_t uartTimeoutBuffer = 0;         // uart timeout
 void bhq_init(void) 
 {
     uart_init(128000);
+#ifdef BHQ_IQR_PIN
     gpio_set_pin_input_low(BHQ_IQR_PIN);    // Module operating status. 
+#endif
+#ifdef BHQ_INT_PIN
     gpio_set_pin_output(BHQ_INT_PIN);            // The qmk has a data request.
+#endif
 }
 
 void bhq_Disable(void)
@@ -44,6 +48,7 @@ uint16_t bhkSumCrc(uint8_t *data, uint16_t length) ;
 // bhq model send uart data
 void BHQ_SendData(uint8_t *dat, uint16_t length)
 {
+#ifdef BHQ_IQR_PIN
     uint32_t wait_bhq_ack_timeout = 0;
     uint32_t last_toggle_time = 0;
     uint32_t bhq_wakeup = 0;
@@ -57,10 +62,14 @@ void BHQ_SendData(uint8_t *dat, uint16_t length)
         while (1)
         {
             // Toggle INT pin every 20ms to wake up the module
+#ifdef BHQ_INT_PIN
             gpio_write_pin_high(BHQ_INT_PIN);
+#endif
             if (timer_elapsed32(last_toggle_time) >= 20)
             {
+#ifdef BHQ_INT_PIN
                 gpio_write_pin_low(BHQ_INT_PIN);
+#endif
                 last_toggle_time = timer_read32();
             }
 
@@ -76,18 +85,24 @@ void BHQ_SendData(uint8_t *dat, uint16_t length)
                 break;
             }
 
-            // Timeout if module does not wake up in 200ms
-            if (timer_elapsed32(wait_bhq_ack_timeout) > 200)
+            // Timeout if module does not wake up in 3ms
+            if (timer_elapsed32(wait_bhq_ack_timeout) > 3)
             {
                 bhq_printf("wait_bhq_ack_timeout...");
+#ifdef BHQ_INT_PIN
                 gpio_write_pin_high(BHQ_INT_PIN); // Leave INT pin high before exit
+#endif
                 break;
             }
         }
     }
+    #ifdef BHQ_INT_PIN
+        // Keep INT pin high before sending data
+        gpio_write_pin_high(BHQ_INT_PIN);
+    #endif
+#endif
 
-    // Keep INT pin high before sending data
-    gpio_write_pin_high(BHQ_INT_PIN);
+
     uart_transmit(dat, length);
     // int s = 0;//sdWrite(&UART_DRIVER,dat, length);
     // Debug print: show sent data
@@ -190,18 +205,28 @@ void bhq_CloseBleAdvertising(void)
     bhkBuff[index++] = 0;      
     BHQ_SendCmd(BHQ_NOT_ACK, bhkBuff,index);
 }
-void bhq_switch_rf_easy_kb(void)
+void bhq_switch_rf_easy_kb(uint8_t host_index,uint16_t timeout_1S)
 {
     uint8_t index = 0;
 
     bhkBuff[index++] = 0x14;
     bhkBuff[index++] = 5;                        
-    bhkBuff[index++] = 0;                        
-    bhkBuff[index++] = 0;      
-    bhkBuff[index++] = 0;      
+    bhkBuff[index++] = host_index;                        
+    bhkBuff[index++] = BHQ_L_UINT16(timeout_1S);      
+    bhkBuff[index++] = BHQ_H_UINT16(timeout_1S);      
     BHQ_SendCmd(BHQ_NOT_ACK, bhkBuff,index);
 }
+void bhq_switch_rf_easy_kb_pair(uint8_t host_index,uint16_t timeout_1S)
+{
+    uint8_t index = 0;
 
+    bhkBuff[index++] = 0x14;
+    bhkBuff[index++] = 6;                        
+    bhkBuff[index++] = host_index;                        
+    bhkBuff[index++] = BHQ_L_UINT16(timeout_1S);      
+    bhkBuff[index++] = BHQ_H_UINT16(timeout_1S);      
+    BHQ_SendCmd(BHQ_NOT_ACK, bhkBuff,index);
+}
 void bhq_update_battery_percent(uint8_t percent, uint16_t bat_mv) {
     uint8_t index = 0;
     memset(bhkBuff, 0, PACKET_MAX_LEN);

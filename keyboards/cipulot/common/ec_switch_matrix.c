@@ -45,12 +45,12 @@ const uint8_t UNUSED_POSITIONS[][2] = UNUSED_POSITIONS_LIST;
 #endif
 
 #define AMUX_SEL_PINS_COUNT ARRAY_SIZE(amux_sel_pins)
-#define EXPECTED_AMUX_SEL_PINS_COUNT ceil(log2(AMUX_MAX_COLS_COUNT)
+#define EXPECTED_AMUX_SEL_PINS_COUNT ((8 * sizeof(int) - __builtin_clz(AMUX_MAX_COLS_COUNT - 1)))
 
 // Checks for the correctness of the configuration
 _Static_assert(ARRAY_SIZE(amux_en_pins) == AMUX_COUNT, "AMUX_EN_PINS doesn't have the minimum number of bits required to enable all the multiplexers available");
 // Check that number of select pins is enough to select all the channels
-_Static_assert(AMUX_SEL_PINS_COUNT == EXPECTED_AMUX_SEL_PINS_COUNT), "AMUX_SEL_PINS doesn't have the minimum number of bits required address all the channels");
+_Static_assert(AMUX_SEL_PINS_COUNT >= EXPECTED_AMUX_SEL_PINS_COUNT, "AMUX_SEL_PINS doesn't have the minimum number of bits required address all the channels");
 // Check that number of elements in AMUX_COL_CHANNELS_SIZES is enough to specify the number of channels for all the multiplexers available
 _Static_assert(ARRAY_SIZE(amux_n_col_sizes) == AMUX_COUNT, "AMUX_COL_CHANNELS_SIZES doesn't have the minimum number of elements required to specify the number of channels for all the multiplexers available");
 
@@ -197,7 +197,7 @@ void ec_noise_floor(void) {
                     if (is_unused_position(row, adjusted_col)) continue;
 #endif
                     disable_unused_row(row);
-                    ec_config.noise_floor[row][adjusted_col] += ec_readkey_raw(amux, row, col);
+                    ec_config.noise_floor[row][adjusted_col] += ec_readkey_raw(amux, row, col, adjusted_col);
                 }
             }
         }
@@ -220,7 +220,7 @@ bool ec_matrix_scan(matrix_row_t current_matrix[]) {
     bool updated = false;
 #ifdef OPAMP_EN_PIN
     OPAMP_ENABLE();
-    // 空转一下
+    // 空转一轮
     for (uint8_t null_cut = 0; null_cut < MATRIX_COLS; null_cut++);
 #endif
     for (uint8_t amux = 0; amux < AMUX_COUNT; amux++) {
@@ -235,7 +235,7 @@ bool ec_matrix_scan(matrix_row_t current_matrix[]) {
                 if (is_unused_position(row, adjusted_col)) continue;
 #endif
                 disable_unused_row(row);
-                sw_value[row][adjusted_col] = ec_readkey_raw(amux, row, col);
+                sw_value[row][adjusted_col] = ec_readkey_raw(amux, row, col, adjusted_col);
 
                 if (ec_config.bottoming_calibration) {
                     if (ec_config.bottoming_calibration_starter[row][adjusted_col]) {
@@ -253,7 +253,7 @@ bool ec_matrix_scan(matrix_row_t current_matrix[]) {
 #ifdef OPAMP_EN_PIN
     OPAMP_DISABLE();
 #endif
-    if (timer_elapsed32(matrix_debug_timer) > 500)     // 1分钟
+    if (timer_elapsed32(matrix_debug_timer) > 500)     // 0.5秒
     {
         matrix_debug_timer = timer_read32();
         ec_print_matrix();
@@ -261,34 +261,87 @@ bool ec_matrix_scan(matrix_row_t current_matrix[]) {
     return ec_config.bottoming_calibration ? false : updated;
 }
 
-static inline int16_t ec_filter_update(ec_key_filter_t *f, int16_t raw)
-{
-	if (!f->initialized) {
-		f->filtered = raw;
-		f->initialized = 1;
-		return raw;
-	}
-	
-	int16_t diff = raw - f->filtered;
-	int16_t abs_diff = (diff < 0) ? -diff : diff;
-	
-	
-	if(abs_diff < 200)
-	{
-		// 一分之二跟随滤波 相当于50% 跟随率
-		f->filtered += diff >> 1;
-	}
-	else
-	{
-		// 超快响应  90.9% 跟随率
-//		f->filtered += diff / 1.1;
-		f->filtered += (diff * 29) >> 5; 	// 等效于/1.1差不多
-	}
-	return f->filtered;
+// ============================================================================
+// 两级 AD 滤波算法 (Two-stage AD Filter Algorithm)
+//
+// Stage 1: 中值滤波 (Median Filter)
+//   - 窗口大小可配置 (EC_MEDIAN_WINDOW: 3~5)
+//   - 消除脉冲噪声和单次孤立尖峰
+//
+// Stage 2: 自适应一阶滤波 (Adaptive First-Order Filter)
+//   - 对中值输出做自适应跟随
+//   - 小偏差 (<200): 50% 慢速跟随, 抑制底噪
+//   - 大偏差 (>=200): ~90.9% 快速跟随, 响应按键
+// ============================================================================
+
+// 中值计算: 小数组插入排序后取中值
+static inline uint16_t ec_median(uint16_t *arr, uint8_t n) {
+    for (uint8_t i = 1; i < n; i++) {
+        uint16_t key = arr[i];
+        int8_t   j   = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = key;
+    }
+    return arr[n / 2];
+}
+
+static inline uint16_t ec_filter_update(ec_key_filter_t *f, uint16_t raw) {
+    // 首次采样 - 初始化历史缓冲区
+    if (!(f->state & 0x01)) {
+        for (uint8_t i = 0; i < EC_MEDIAN_WINDOW - 1; i++) {
+            f->samples[i] = raw;
+        }
+        f->filtered = raw;
+        f->state    = 0x01;
+        return raw;
+    }
+
+    // === Stage 1: 中值滤波 ===
+    // 构建窗口: 历史采样缓冲区 + 当前原始采样
+    uint16_t window[EC_MEDIAN_WINDOW];
+    for (uint8_t i = 0; i < EC_MEDIAN_WINDOW - 1; i++) {
+        window[i] = f->samples[i];
+    }
+    window[EC_MEDIAN_WINDOW - 1] = raw;
+    uint16_t med = ec_median(window, EC_MEDIAN_WINDOW);
+
+    // 更新历史采样缓冲区 (左移丢弃最旧, 末尾写入最新)
+    for (uint8_t i = 0; i < EC_MEDIAN_WINDOW - 2; i++) {
+        f->samples[i] = f->samples[i + 1];
+    }
+    f->samples[EC_MEDIAN_WINDOW - 2] = raw;
+
+    // === Stage 2: 自适应一阶滤波 ===
+    int16_t diff     = (int16_t)med - (int16_t)f->filtered;
+    int16_t abs_diff = (diff < 0) ? -diff : diff;
+
+    int16_t step;
+    if (abs_diff < 200) {
+        // 小偏差 -> 慢速滤波 (抑制底噪抖动)
+        step = diff >> 1;
+    } else {
+        // 大偏差 -> 超快响应 (~90.9% 跟随率, 等效 /1.1)
+        step = (diff * 29) >> 5;
+    }
+
+    // 先算出完整滤波结果
+    f->filtered += step;
+
+    // 死区: 步长太小时回滚, 防止底噪小幅度抖动
+    int16_t abs_step = (step < 0) ? -step : step;
+    if (abs_step <= EC_DEAD_ZONE) {
+        f->filtered -= step;   // 回滚
+        return f->filtered;    // 返回旧值
+    }
+
+    return f->filtered;
 }
 
 // Read the capacitive sensor value
-uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col) {
+uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col, uint8_t adjusted_col) {
     uint16_t sw_value = 0;
 
     // Select the multiplexer
@@ -296,6 +349,7 @@ uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col) {
 
     // Set the row pin to low state to avoid ghosting
     gpio_write_pin_low(row_pins[row]);
+    (void)adc_read(adcMux);
 
     ATOMIC_BLOCK_FORCEON {
         // Set the row pin to high state and have capacitor charge
@@ -309,9 +363,9 @@ uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col) {
     discharge_capacitor();
     // Waiting for the ghost capacitor to discharge fully
     wait_us(DISCHARGE_TIME);
+    (void)adc_read(adcMux);
 
-    int16_t filtered = ec_filter_update(&ec_key_filter[row][col], sw_value);
-
+    uint16_t filtered = ec_filter_update(&ec_key_filter[row][adjusted_col], sw_value);
     return filtered;
 }
 

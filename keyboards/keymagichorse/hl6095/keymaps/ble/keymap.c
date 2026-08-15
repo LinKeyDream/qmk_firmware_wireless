@@ -79,7 +79,7 @@ const rgblight_segment_t* const PROGMEM _rgb_layers[] = RGBLIGHT_LAYERS_LIST(
 );
 
 void rgb_adv_unblink_all_layer(void) {
-    for (uint8_t i = 0; i < 5; i++) {
+    for (uint8_t i = 0; i < 6; i++) {
         rgblight_unblink_layer(i);
     }
 }
@@ -123,6 +123,10 @@ void wireless_rf24g_hanlde_kb(uint8_t connectSta,uint8_t pairingSta)
     wireless_update_led_block_timer = timer_read32();
     rgblight_disable_noeeprom();
     rgb_adv_unblink_all_layer();
+    if(connectSta == 0 && pairingSta == 1)
+    {
+        rgblight_blink_layer_repeat(5 , 200, 100);
+    }
     if(connectSta == 1)
     {
         rgblight_blink_layer_repeat(5 , 200, 2);
@@ -176,6 +180,7 @@ void housekeeping_task_user(void)
         {
             low_led_blink_timer = timer_read32();
             low_led_sta ^= 1;
+            rgb_adv_unblink_all_layer();
             rgblight_set_layer_state(4, low_led_sta);
         }
         return;
@@ -211,8 +216,8 @@ void lpm_device_power_open(void)
     // ws2812电源开启
     ws2812_init();
     ws2812_set_power(1);
-
 }
+
 //关闭外围设备电源
 void lpm_device_power_close(void) 
 {

@@ -19,14 +19,18 @@
 
 extern matrix_row_t raw_matrix[MATRIX_ROWS]; // raw values
 extern matrix_row_t matrix[MATRIX_ROWS];     // debounced values
+static bool noise_floor_initialized = false;
 
 // Custom matrix init function
 void matrix_init_custom(void) {
     // Initialize EC
     ec_init();
-
+    
     // Get the noise floor at boot
-    ec_noise_floor();
+    if (!noise_floor_initialized) {
+        ec_noise_floor();
+        noise_floor_initialized = true;
+    }
 }
 
 // Custom matrix scan function
