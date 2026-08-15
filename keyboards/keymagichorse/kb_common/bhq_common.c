@@ -185,6 +185,21 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
             }
             return true;
         }
+#if defined(KB_CHECK_BATTERY_ENABLED)
+        case BAT_INFO:
+        {
+            if(record->event.pressed)
+            {
+                // 输出电池信息: Bat: 85% 3950mV
+                char buf[24];
+                int  len = snprintf(buf, sizeof(buf), "Bat: %d%% %dmV\n", battery_get_percent(), battery_get_mv());
+                if (len > 0) {
+                    send_string(buf);
+                }
+            }
+            return false;
+        }
+#endif
     }
     return true;
 }
