@@ -55,9 +55,14 @@
 #ifndef BLE_RESET
 #   define BLE_RESET    QK_USER_28      
 #endif
- // 关闭蓝牙连接
+// 关闭蓝牙连接
 #ifndef BLE_OFF
 #   define BLE_OFF      QK_USER_29       
+#endif
+
+// 输出电池信息（百分比 + 电压 mV）
+#ifndef BAT_INFO
+#   define BAT_INFO     QK_USER_30
 #endif
 
 void bhq_set_lowbat_led(bool on);
