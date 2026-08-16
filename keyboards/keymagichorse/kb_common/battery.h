@@ -77,15 +77,24 @@
 // ------------------------ VREFINT 校准配置 ------------------------
 
 // ------------------------ 低电量保护配置 ------------------------
-// 当电池电压低于此阈值 (mV) 时，禁用 RTC 周期唤醒，只保留 USB 插入唤醒
-// 3.3V LDO 在此电压以下已无法稳压，ADC 读数不可靠，EC 矩阵可能误触发
-#ifndef BATTERY_LOW_MV
-#    define BATTERY_LOW_MV     3400
-#endif
-
 // RTC 唤醒循环中每 N 次唤醒检查一次电池电压
 #ifndef BATTERY_RTC_CHECK_INTERVAL
-#    define BATTERY_RTC_CHECK_INTERVAL  10
+#    define BATTERY_RTC_CHECK_INTERVAL  3
+#endif
+// 低电量恢复阈值：电压回升到此值以上才解锁低电量（迟滞，避免临界抖动）
+#ifndef BATTERY_LOW_RECOVER_MV
+#    define BATTERY_LOW_RECOVER_MV      3700
+#endif
+// 百分比回滞：百分比只能高到低走，
+// 上升时需 new_percent - battery_percent >= 此值才允许上调
+#ifndef BATTERY_PERCENT_HYSTERESIS
+#    define BATTERY_PERCENT_HYSTERESIS  10
+#endif
+// 去抖动时允许的百分比波动范围（±此值以内视为稳定）
+// 电池电压范围 3500~4100mV 对应 0~100%，每 1% ≈ 6mV
+// ADC 采样波动通常在 ±1~2% 以内，允许 ±3 足够滤除抖动
+#ifndef BATTERY_DEBOUNCE_TOLERANCE
+#    define BATTERY_DEBOUNCE_TOLERANCE  3
 #endif
 // ------------------------ 低电量保护配置 ------------------------
 

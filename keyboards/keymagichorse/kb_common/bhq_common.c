@@ -73,7 +73,18 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
 #   if defined(KB_LPM_ENABLED)
     lpm_timer_reset();  // 这里用于低功耗，按下任何按键刷新低功耗计时器
 #endif
-
+#if defined(KB_CHECK_BATTERY_ENABLED)
+    if(keycode == BAT_INFO && record->event.pressed)
+    {
+        // 输出电池信息: Bat: 85% 3950mV
+        char buf[24];
+        int  len = snprintf(buf, sizeof(buf), "Bat: %d%% %dmV", battery_get_percent(), battery_get_mv());
+        if (len > 0) {
+            send_string(buf);
+        }
+        return false;
+    }
+#endif
     // 如果是无线模式 且 没有连接的情况下 按下任意按键触发广播
     if ( (IS_WIRELESS_TRANSPORT(transport_get()) == true)  && wireless_get() != WT_STATE_CONNECTED ) 
     {
@@ -185,21 +196,6 @@ bool process_record_bhq(uint16_t keycode, keyrecord_t *record) {
             }
             return true;
         }
-#if defined(KB_CHECK_BATTERY_ENABLED)
-        case BAT_INFO:
-        {
-            if(record->event.pressed)
-            {
-                // 输出电池信息: Bat: 85% 3950mV
-                char buf[24];
-                int  len = snprintf(buf, sizeof(buf), "Bat: %d%% %dmV\n", battery_get_percent(), battery_get_mv());
-                if (len > 0) {
-                    send_string(buf);
-                }
-            }
-            return false;
-        }
-#endif
     }
     return true;
 }

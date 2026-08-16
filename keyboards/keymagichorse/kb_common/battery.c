@@ -22,8 +22,10 @@ static uint32_t battery_report_timer = 0;
 static uint8_t last_sample  = 0xFF;
 static uint8_t stable_count = 0;
 
+
 static bool battery_low_voltage = false;
-static uint8_t battery_rtc_wakeup_count = 0;
+static uint8_t battery_low_count = 0;   // 低电量连续确认计数
+#define BATTERY_LOW_CONFIRM  3           // 连续 N 次低于阈值才锁定低电量
 
 __attribute__((weak)) void battery_percent_changed_user(uint8_t level) {}
 __attribute__((weak)) void battery_percent_changed_kb(uint8_t level) {}
@@ -48,8 +50,13 @@ static uint8_t calculate_battery_percentage(uint16_t mv) {
 
 static uint8_t battery_percent_debounce(uint8_t new_percent) {
     km_printf("bat ldo:%d new:%d\n", last_sample, new_percent);
-    if (new_percent == last_sample) {
+    // 允许在 ±BATTERY_DEBOUNCE_TOLERANCE 范围内波动视为稳定
+    int16_t diff = (int16_t)new_percent - (int16_t)last_sample;
+    if (diff < 0) diff = -diff;
+    if (diff <= BATTERY_DEBOUNCE_TOLERANCE) {
         if (stable_count < 255) stable_count++;
+        // 用最新值更新 last_sample，使基准跟随实际电压
+        last_sample = new_percent;
     } else {
         last_sample  = new_percent;
         stable_count = 1;
@@ -75,17 +82,11 @@ static void battery_percent_debounce_reset(void) {
 #    define BATTERY_ADC_MIN_VALID 50
 #endif
 
-static uint8_t battery_read_percent(void) {
-    /* USB 供电直接认为 100% */
-    if (usb_power_connected()) {
-        battery_percent = 100;
-        battery_mv      = BATTERY_MAX_MV;
-        battery_has_valid_sample = 1;
-        battery_percent_debounce_reset();
-        battery_percent_changed_internal(100);
-        return 1;
-    }
+/* ===================== 公共：读取电池电压 ===================== */
 
+// 读取电池电压 (mV)，通过 VREFINT 动态校准 VDDA
+// 返回电池电压 (mV)，读取失败返回 0
+static uint16_t battery_read_mv(void) {
     // 读取外部 ADC (电池分压)
     int16_t adc = 0;
     for (uint8_t i = 0; i < BATTERY_ADC_RETRY_COUNT; i++) {
@@ -103,22 +104,95 @@ static uint8_t battery_read_percent(void) {
     adc_mux vrefint_mux = TO_MUX(BATTERY_VREFINT_CHANNEL, 0);
     int16_t vrefint_adc = adc_read(vrefint_mux);
 
-    // 打印原始值
-    km_printf("adc:%d vrefint:%d\n", adc, vrefint_adc);
+    if (vrefint_adc <= 0) {
+        return 0;
+    }
 
     // VDDA = VREFINT_mV * FullScale / vrefint_adc
-    // adc_read 返回 10bit，BATTERY_ADC_FULLSCALE=1023，BATTERY_VREFINT_MV=1210
     uint32_t vdda_mv = ((uint32_t)BATTERY_VREFINT_MV * BATTERY_ADC_FULLSCALE) / (uint16_t)vrefint_adc;
     // 分压后的电压
     uint32_t mv_div = (uint32_t)adc * vdda_mv / BATTERY_ADC_FULLSCALE;
-    // 电池电压
-    battery_mv = (uint16_t)(mv_div * (BAT_R_UPPER + BAT_R_LOWER) / BAT_R_LOWER);
-    uint8_t new_percent = calculate_battery_percentage(battery_mv);
-    km_printf("vdda:%d bat:%d pct:%d\n", vdda_mv, battery_mv, new_percent);
+    // 电池电压 = 分压后电压 * 分压系数
+    uint16_t mv = (uint16_t)(mv_div * (BAT_R_UPPER + BAT_R_LOWER) / BAT_R_LOWER);
 
+    km_printf("adc:%d vref:%d vdda:%d bat:%d\n", adc, vrefint_adc, vdda_mv, mv);
+
+    return mv;
+}
+
+// 低电量检测（带迟滞恢复）：
+// - 电压 <= BATTERY_MIN_MV：连续 N 次确认后锁定低电量
+// - 电压 >= BATTERY_LOW_RECOVER_MV：连续 N 次确认后解除低电量
+// 返回 true 表示当前处于低电量锁定状态
+static bool battery_check_low(uint16_t mv) {
+    if (battery_low_voltage) {
+        // 已锁定低电量，检查是否恢复
+        if (mv >= BATTERY_LOW_RECOVER_MV) {
+            if (battery_low_count < 255) battery_low_count++;
+            if (battery_low_count >= BATTERY_LOW_CONFIRM) {
+                battery_low_voltage = false;
+                battery_low_count  = 0;
+            }
+        } else {
+            battery_low_count = 0;
+        }
+    } else {
+        // 未锁定，检查是否触发低电量
+        if (mv <= BATTERY_MIN_MV) {
+            if (battery_low_count < 255) battery_low_count++;
+            if (battery_low_count >= BATTERY_LOW_CONFIRM) {
+                battery_low_voltage = true;
+            }
+        } else {
+            battery_low_count = 0;
+        }
+    }
+    return battery_low_voltage;
+}
+
+/* ===================== 正常运行：battery_task 调用 ===================== */
+
+static uint8_t battery_read_percent(void) {
+    /* USB 供电直接认为 100% */
+    if (usb_power_connected()) {
+        battery_percent = 100;
+        battery_mv      = BATTERY_MAX_MV;
+        battery_has_valid_sample = 1;
+        battery_percent_debounce_reset();
+        battery_percent_changed_internal(100);
+        return 1;
+    }
+
+    uint16_t mv = battery_read_mv();
+    if (mv == 0) {
+        return 0;
+    }
+
+    battery_mv = mv;
+
+    // 低电量检测
+    battery_check_low(mv);
+
+    // 电压 → 百分比
+    uint8_t new_percent = calculate_battery_percentage(mv);
+
+    km_printf("bat:%d pct:%d\n", mv, new_percent);
+
+    // 先对原始百分比做去抖动确认
     if (battery_percent_debounce(new_percent)) {
-        battery_percent_changed_internal(new_percent);
-        battery_percent          = new_percent;
+        // 去抖动通过后，再应用回滞规则决定是否更新 battery_percent
+        uint8_t apply_percent = new_percent;
+
+        if (battery_has_valid_sample && new_percent > battery_percent) {
+            if (new_percent - battery_percent < BATTERY_PERCENT_HYSTERESIS) {
+                apply_percent = battery_percent;  // 上升幅度不够，保持不变
+            }
+        }
+
+        if (apply_percent != battery_percent) {
+            battery_percent_changed_internal(apply_percent);
+        }
+        battery_percent          = apply_percent;
         battery_has_valid_sample = 1;
         km_printf("battery stable: %dmV -> %d%%\n", battery_mv, battery_percent);
         return 1;
@@ -149,7 +223,7 @@ void battery_task(void) {
 void battery_init(void) {
     battery_percent_debounce_reset();
     battery_low_voltage      = false;
-    battery_rtc_wakeup_count = 0;
+    battery_low_count       = 0;
     adcSTM32EnableTSVREFE();
 }
 
@@ -185,19 +259,30 @@ bool battery_is_low_voltage(void) {
     return battery_low_voltage;
 }
 
+/* ===================== RTC 唤醒：轻量级电池检查 ===================== */
+
 bool battery_rtc_check_voltage(void) {
     if (usb_power_connected()) {
         battery_low_voltage      = false;
-        battery_rtc_wakeup_count = 0;
+        battery_low_count       = 0;
         return true;
     }
     if (battery_low_voltage) {
         return false;
     }
-    battery_rtc_wakeup_count++;
-    if (battery_rtc_wakeup_count < BATTERY_RTC_CHECK_INTERVAL) {
-        return true;
+
+    // 读取电池电压（复用公共函数）
+    uint16_t mv = battery_read_mv();
+    if (mv == 0) {
+        return true;  // ADC 未就绪，不判定为低电量
     }
-    battery_rtc_wakeup_count = 0;
+
+    battery_mv = mv;
+
+    // 低电量检测
+    if (battery_check_low(mv)) {
+        return false;  // 已锁定低电量，禁用 RTC 唤醒
+    }
+
     return true;
 }

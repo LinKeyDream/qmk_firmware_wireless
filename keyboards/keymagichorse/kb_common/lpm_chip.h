@@ -32,6 +32,7 @@
  *   - lpm_chip_rtc_init()             RTC 初始化（在 lpm_init 中调用）
  *   - lpm_chip_rtc_wakeup_setup(ms)   配置 RTC 唤醒（在休眠前调用）
  *   - lpm_chip_rtc_wakeup_clear()     清除 RTC 唤醒标志（在唤醒后调用）
+ *   - lpm_chip_rtc_wakeup_disable()   禁用 RTC 唤醒（低电量时调用）
  */
 
 #pragma once

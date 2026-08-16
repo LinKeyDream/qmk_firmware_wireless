@@ -98,4 +98,11 @@ static inline void lpm_chip_rtc_wakeup_setup(uint32_t interval_ms) {
 static inline void lpm_chip_rtc_wakeup_clear(void) {
     /* AT32F415 不支持 RTC 唤醒 */
 }
+
+/**
+ * @brief 禁用 RTC 周期性唤醒（低电量时调用，只保留 USB 唤醒）
+ */
+static inline void lpm_chip_rtc_wakeup_disable(void) {
+    /* AT32F415 不支持 RTC 唤醒 */
+}
 #endif
