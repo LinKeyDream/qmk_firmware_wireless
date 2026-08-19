@@ -29,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // clang-format off
 
 /* HID report IDs */
-enum hid_report_ids { 
+enum hid_report_ids {
     REPORT_ID_ALL = 0,
     REPORT_ID_KEYBOARD = 1,
     REPORT_ID_MOUSE,
@@ -43,6 +43,15 @@ enum hid_report_ids {
 };
 
 #define IS_VALID_REPORT_ID(id) ((id) >= REPORT_ID_ALL && (id) <= REPORT_ID_COUNT)
+
+#ifdef APDAPTIVE_NKRO_ENABLE
+/* Keyboard report type */
+#define KB_RPT_MASK(n) (1 << (n))
+enum kb_reports {
+    KB_RPT_STD = KB_RPT_MASK(0),
+    KB_RPT_NKRO = KB_RPT_MASK(1)
+};
+#endif
 
 /* Mouse buttons */
 #define MOUSE_BTN_MASK(n) (1 << (n))
@@ -264,6 +273,19 @@ typedef struct {
 #endif
 } PACKED report_joystick_t;
 
+typedef struct {
+    uint8_t report_type;
+    uint8_t len;
+    uint16_t buttons;
+    uint8_t left_trigger;
+    uint8_t right_trigger;
+    uint16_t x;
+    uint16_t y;
+    uint16_t rx;
+    uint16_t ry;
+    uint8_t reserved[6];
+} PACKED report_xinput_t;
+
 /* keycode to system usage */
 static inline uint16_t KEYCODE2SYSTEM(uint8_t key) {
     switch (key) {
@@ -279,7 +301,7 @@ static inline uint16_t KEYCODE2SYSTEM(uint8_t key) {
 }
 
 /* keycode to consumer usage */
-static inline uint16_t KEYCODE2CONSUMER(uint8_t key) {
+static inline uint16_t KEYCODE2CONSUMER(uint16_t key) {
     switch (key) {
         case KC_AUDIO_MUTE:
             return AUDIO_MUTE;
@@ -335,6 +357,8 @@ static inline uint16_t KEYCODE2CONSUMER(uint8_t key) {
             return AC_DESKTOP_SHOW_ALL_WINDOWS;
         case KC_LAUNCHPAD:
             return AC_SOFT_KEY_LEFT;
+        case RESERVED_KEYCODE_RAGE:
+            return 0x1CC + (key - QK_CONSUMER_RESERVED_0);
         default:
             return 0;
     }
@@ -348,7 +372,7 @@ void add_key_byte(report_keyboard_t* keyboard_report, uint8_t code);
 void del_key_byte(report_keyboard_t* keyboard_report, uint8_t code);
 #ifdef NKRO_ENABLE
 void add_key_bit(report_nkro_t* nkro_report, uint8_t code);
-void del_key_bit(report_nkro_t* nkro_report, uint8_t code);
+bool del_key_bit(report_nkro_t* nkro_report, uint8_t code);
 #endif
 
 void add_key_to_report(uint8_t key);

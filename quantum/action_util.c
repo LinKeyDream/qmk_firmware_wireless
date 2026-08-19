@@ -38,6 +38,11 @@ static uint8_t suppressed_mods    = 0;
 report_keyboard_t *keyboard_report = &(report_keyboard_t){};
 #ifdef NKRO_ENABLE
 report_nkro_t *nkro_report = &(report_nkro_t){};
+#    ifdef APDAPTIVE_NKRO_ENABLE
+uint8_t kb_report_changed;
+uint8_t kb_keys_count  = 0;
+uint8_t nkro_bit_count = 0;
+#    endif
 #endif
 
 extern inline void add_key(uint8_t key);
@@ -312,11 +317,16 @@ void send_6kro_report(void) {
         host_keyboard_send(keyboard_report);
     }
 #endif
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    kb_report_changed &= ~KB_RPT_STD;
+#endif
 }
 
 #ifdef NKRO_ENABLE
 void send_nkro_report(void) {
+#    ifndef APDAPTIVE_NKRO_ENABLE
     nkro_report->mods = get_mods_for_report();
+#    endif
 
     static report_nkro_t last_report;
 
@@ -325,6 +335,9 @@ void send_nkro_report(void) {
         memcpy(&last_report, nkro_report, sizeof(report_nkro_t));
         host_nkro_send(nkro_report);
     }
+#    ifdef APDAPTIVE_NKRO_ENABLE
+    kb_report_changed &= ~KB_RPT_NKRO;
+#    endif
 }
 #endif
 
@@ -334,12 +347,23 @@ void send_nkro_report(void) {
  */
 void send_keyboard_report(void) {
 #ifdef NKRO_ENABLE
+#    ifdef APDAPTIVE_NKRO_ENABLE
+    if (kb_report_changed & KB_RPT_STD) {
+        send_6kro_report();
+    }
+    if (host_can_send_nkro() && (kb_report_changed & KB_RPT_NKRO)) {
+        send_nkro_report();
+    }
+#    else
     if (host_can_send_nkro() && keymap_config.nkro) {
         send_nkro_report();
-        return;
+    } else {
+        send_6kro_report();
     }
-#endif
+#    endif
+#else
     send_6kro_report();
+#endif
 }
 
 /**
@@ -361,6 +385,9 @@ mod_t get_mod_state(void) {
  * FIXME: needs doc
  */
 void add_mods(uint8_t mods) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if ((real_mods & mods) != mods) kb_report_changed |= KB_RPT_STD;
+#endif
     real_mods |= mods;
 }
 /** \brief del mods
@@ -368,6 +395,9 @@ void add_mods(uint8_t mods) {
  * FIXME: needs doc
  */
 void del_mods(uint8_t mods) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (real_mods & mods) kb_report_changed |= KB_RPT_STD;
+#endif
     real_mods &= ~mods;
 }
 /** \brief set mods
@@ -375,6 +405,9 @@ void del_mods(uint8_t mods) {
  * FIXME: needs doc
  */
 void set_mods(uint8_t mods) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (real_mods != mods) kb_report_changed |= KB_RPT_STD;
+#endif
     real_mods = mods;
 }
 /** \brief clear mods
@@ -382,6 +415,9 @@ void set_mods(uint8_t mods) {
  * FIXME: needs doc
  */
 void clear_mods(void) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (real_mods) kb_report_changed |= KB_RPT_STD;
+#endif
     real_mods = 0;
 }
 
@@ -404,6 +440,9 @@ mod_t get_weak_mod_state(void) {
  * FIXME: needs doc
  */
 void add_weak_mods(uint8_t mods) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if ((weak_mods & mods) != mods) kb_report_changed |= KB_RPT_STD;
+#endif
     weak_mods |= mods;
 }
 /** \brief del weak mods
@@ -411,6 +450,9 @@ void add_weak_mods(uint8_t mods) {
  * FIXME: needs doc
  */
 void del_weak_mods(uint8_t mods) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (weak_mods & mods) kb_report_changed |= KB_RPT_STD;
+#endif
     weak_mods &= ~mods;
 }
 /** \brief set weak mods
@@ -418,6 +460,9 @@ void del_weak_mods(uint8_t mods) {
  * FIXME: needs doc
  */
 void set_weak_mods(uint8_t mods) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (weak_mods != mods) kb_report_changed |= KB_RPT_STD;
+#endif
     weak_mods = mods;
 }
 /** \brief clear weak mods
@@ -425,6 +470,9 @@ void set_weak_mods(uint8_t mods) {
  * FIXME: needs doc
  */
 void clear_weak_mods(void) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (weak_mods) kb_report_changed |= KB_RPT_STD;
+#endif
     weak_mods = 0;
 }
 
@@ -432,22 +480,34 @@ void clear_weak_mods(void) {
 /** \brief set weak mods used by key overrides. DO not call this manually
  */
 void set_weak_override_mods(uint8_t mods) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (weak_override_mods != mods) kb_report_changed |= KB_RPT_STD;
+#endif
     weak_override_mods = mods;
 }
 /** \brief clear weak mods used by key overrides. DO not call this manually
  */
 void clear_weak_override_mods(void) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (weak_override_mods) kb_report_changed |= KB_RPT_STD;
+#endif
     weak_override_mods = 0;
 }
 
 /** \brief set suppressed mods used by key overrides. DO not call this manually
  */
 void set_suppressed_override_mods(uint8_t mods) {
+#    if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (weak_override_mods != mods) kb_report_changed |= KB_RPT_STD;
+#    endif
     suppressed_mods = mods;
 }
 /** \brief clear suppressed mods used by key overrides. DO not call this manually
  */
 void clear_suppressed_override_mods(void) {
+#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+    if (suppressed_mods) kb_report_changed |= KB_RPT_STD;
+#endif
     suppressed_mods = 0;
 }
 #endif
