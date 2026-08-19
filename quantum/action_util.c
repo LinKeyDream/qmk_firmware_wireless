@@ -316,9 +316,9 @@ void send_6kro_report(void) {
         memcpy(&last_report, keyboard_report, sizeof(report_keyboard_t));
         host_keyboard_send(keyboard_report);
     }
-#endif
-#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+#    ifdef APDAPTIVE_NKRO_ENABLE
     kb_report_changed &= ~KB_RPT_STD;
+#    endif
 #endif
 }
 
@@ -327,7 +327,6 @@ void send_nkro_report(void) {
 #    ifndef APDAPTIVE_NKRO_ENABLE
     nkro_report->mods = get_mods_for_report();
 #    endif
-
     static report_nkro_t last_report;
 
     /* Only send the report if there are changes to propagate to the host. */
@@ -348,9 +347,7 @@ void send_nkro_report(void) {
 void send_keyboard_report(void) {
 #ifdef NKRO_ENABLE
 #    ifdef APDAPTIVE_NKRO_ENABLE
-    if (kb_report_changed & KB_RPT_STD) {
-        send_6kro_report();
-    }
+    if (kb_report_changed & KB_RPT_STD) send_6kro_report();
     if (host_can_send_nkro() && (kb_report_changed & KB_RPT_NKRO)) {
         send_nkro_report();
     }
@@ -480,17 +477,17 @@ void clear_weak_mods(void) {
 /** \brief set weak mods used by key overrides. DO not call this manually
  */
 void set_weak_override_mods(uint8_t mods) {
-#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+#    if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
     if (weak_override_mods != mods) kb_report_changed |= KB_RPT_STD;
-#endif
+#    endif
     weak_override_mods = mods;
 }
 /** \brief clear weak mods used by key overrides. DO not call this manually
  */
 void clear_weak_override_mods(void) {
-#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+#    if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
     if (weak_override_mods) kb_report_changed |= KB_RPT_STD;
-#endif
+#    endif
     weak_override_mods = 0;
 }
 
@@ -498,16 +495,16 @@ void clear_weak_override_mods(void) {
  */
 void set_suppressed_override_mods(uint8_t mods) {
 #    if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
-    if (weak_override_mods != mods) kb_report_changed |= KB_RPT_STD;
+    if (weak_override_mods != mods) suppressed_mods |= KB_RPT_STD;
 #    endif
     suppressed_mods = mods;
 }
 /** \brief clear suppressed mods used by key overrides. DO not call this manually
  */
 void clear_suppressed_override_mods(void) {
-#if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
+#    if defined(NKRO_ENABLE) && defined(APDAPTIVE_NKRO_ENABLE)
     if (suppressed_mods) kb_report_changed |= KB_RPT_STD;
-#endif
+#    endif
     suppressed_mods = 0;
 }
 #endif

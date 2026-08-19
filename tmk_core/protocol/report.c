@@ -1,5 +1,4 @@
 /* Copyright 2017 Fred Sundvik
- * Copyright 2024 Lokkher (https://www.keychron.com)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
