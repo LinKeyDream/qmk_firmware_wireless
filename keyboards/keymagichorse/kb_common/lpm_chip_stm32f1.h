@@ -165,4 +165,12 @@ static inline void lpm_chip_rtc_wakeup_clear(void) {
     }
 }
 
+/**
+ * @brief 禁用 RTC 周期性唤醒（低电量时调用，只保留 USB 唤醒）
+ */
+static inline void lpm_chip_rtc_wakeup_disable(void) {
+    /* 禁用 EXTI Line 17 中断 */
+    EXTI->IMR &= ~EXTI_IMR_MR17;
+}
+
 #endif /* LPM_RTC_WAKEUP */

@@ -44,6 +44,15 @@ enum hid_report_ids {
 
 #define IS_VALID_REPORT_ID(id) ((id) >= REPORT_ID_ALL && (id) <= REPORT_ID_COUNT)
 
+#ifdef APDAPTIVE_NKRO_ENABLE
+/* Keyboard report type */
+#define KB_RPT_MASK(n) (1 << (n))
+enum kb_reports {
+    KB_RPT_STD = KB_RPT_MASK(0),
+    KB_RPT_NKRO = KB_RPT_MASK(1)
+};
+#endif
+
 /* Mouse buttons */
 #define MOUSE_BTN_MASK(n) (1 << (n))
 enum mouse_buttons {
@@ -194,21 +203,21 @@ typedef struct {
 } PACKED report_programmable_button_t;
 
 #ifdef MOUSE_EXTENDED_REPORT
-#    define MOUSE_REPORT_XY_MIN INT16_MIN
+#    define MOUSE_REPORT_XY_MIN (INT16_MIN + 1)
 #    define MOUSE_REPORT_XY_MAX INT16_MAX
 typedef int16_t mouse_xy_report_t;
 #else
-#    define MOUSE_REPORT_XY_MIN INT8_MIN
+#    define MOUSE_REPORT_XY_MIN (INT8_MIN + 1)
 #    define MOUSE_REPORT_XY_MAX INT8_MAX
 typedef int8_t mouse_xy_report_t;
 #endif
 
 #ifdef WHEEL_EXTENDED_REPORT
-#    define MOUSE_REPORT_HV_MIN INT16_MIN
+#    define MOUSE_REPORT_HV_MIN (INT16_MIN + 1)
 #    define MOUSE_REPORT_HV_MAX INT16_MAX
 typedef int16_t mouse_hv_report_t;
 #else
-#    define MOUSE_REPORT_HV_MIN INT8_MIN
+#    define MOUSE_REPORT_HV_MIN (INT8_MIN + 1)
 #    define MOUSE_REPORT_HV_MAX INT8_MAX
 typedef int8_t mouse_hv_report_t;
 #endif
@@ -348,7 +357,7 @@ void add_key_byte(report_keyboard_t* keyboard_report, uint8_t code);
 void del_key_byte(report_keyboard_t* keyboard_report, uint8_t code);
 #ifdef NKRO_ENABLE
 void add_key_bit(report_nkro_t* nkro_report, uint8_t code);
-void del_key_bit(report_nkro_t* nkro_report, uint8_t code);
+bool del_key_bit(report_nkro_t* nkro_report, uint8_t code);
 #endif
 
 void add_key_to_report(uint8_t key);

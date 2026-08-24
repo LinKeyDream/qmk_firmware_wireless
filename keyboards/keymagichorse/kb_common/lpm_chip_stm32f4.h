@@ -147,4 +147,11 @@ static inline void lpm_chip_rtc_wakeup_clear(void) {
     /* ChibiOS RTC 驱动自动处理标志清除 */
 }
 
+/**
+ * @brief 禁用 RTC 周期性唤醒（低电量时调用，只保留 USB 唤醒）
+ */
+static inline void lpm_chip_rtc_wakeup_disable(void) {
+    rtcSTM32SetPeriodicWakeup(&RTCD1, NULL);
+}
+
 #endif /* LPM_RTC_WAKEUP */

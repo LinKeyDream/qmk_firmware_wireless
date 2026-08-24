@@ -55,8 +55,13 @@ ifeq ($(strip $(KB_EC_ENABLED)), yes)
     SRC += kb_common/ec_lib/ec_matrix.c
 endif
 
+ifeq ($(strip $(NKRO_ENABLE)), yes)
+    OPT_DEFS += -DAPDAPTIVE_NKRO_ENABLE
+endif
+
 # 蓝牙
 ifeq ($(strip $(BLUETOOTH_DRIVER)), bhq)
+
 
     # 低功耗 start
     ifeq ($(strip $(KB_LPM_ENABLED)), yes)

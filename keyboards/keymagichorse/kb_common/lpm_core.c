@@ -310,9 +310,7 @@ static void lpm_wake_restore(void) {
 
 #if defined(KB_CHECK_BATTERY_ENABLED)
     battery_enable_read();
-    // 唤醒后重新初始化电池状态，清除低电量标志
-    // （如果是 USB 插入唤醒，此时已转为 USB 供电，电池电压不再受限）
-    battery_init();
+    // battery_init() 已在 bhq_common_init() 中调用，无需重复
 #endif
 
     lpm_device_power_open();
@@ -448,16 +446,20 @@ static void lpm_hal_init(void) {
  *   5. 退出循环后执行完整的唤醒恢复
  */
 static void lpm_sleep_with_rtc_wakeup(void) {
+#if defined(KB_CHECK_BATTERY_ENABLED) && defined(LPM_EC_MATRIX)
+    // 进入休眠前实时读取电池电压，低电量时不设 RTC 唤醒
+    battery_rtc_check_voltage();
+    static uint8_t rtc_wakeup_bat_count = 0;
+#endif
+
     if (!lpm_sleep_prepare()) {
         return;  // USB 已连接，不进入休眠
     }
 
-    // 低电量检查：电池过低时禁用 RTC 周期唤醒，只保留 USB 插入唤醒
-    // 此时不设 RTC 唤醒，直接进入 STOP 模式等待 USB 中断唤醒
 #if defined(KB_CHECK_BATTERY_ENABLED) && defined(LPM_EC_MATRIX)
+    // 低电量：禁用 RTC 周期唤醒，只保留 USB 插入唤醒
     if (battery_is_low_voltage()) {
-        // 不设 RTC 唤醒，仅依赖 USB 插入引脚事件唤醒
-        palEnableLineEvent(USB_POWER_SENSE_PIN, PAL_EVENT_MODE_RISING_EDGE);
+        lpm_chip_rtc_wakeup_disable();
         lpm_chip_enter_stop_mode();
         lpm_wake_restore();
         return;
@@ -474,18 +476,18 @@ static void lpm_sleep_with_rtc_wakeup(void) {
 
 #if defined(KB_CHECK_BATTERY_ENABLED) && defined(LPM_EC_MATRIX)
         // RTC 唤醒后检查电池电压，每 N 次唤醒检查一次
-        // 电压过低时退出 RTC 唤醒循环，转为仅 USB 唤醒
-        if (!battery_rtc_check_voltage()) {
-            // 电池电压过低，禁用 RTC 唤醒
-            // 只做必要的休眠准备，不设 RTC 唤醒
-            // USB 插入检测引脚已在 lpm_sleep_prepare() 中配置
-            palEnableLineEvent(USB_POWER_SENSE_PIN, PAL_EVENT_MODE_RISING_EDGE);
-#    ifdef BHQ_IQR_PIN
-            gpio_set_pin_input_low(BHQ_IQR_PIN);
-            palEnableLineEvent(BHQ_IQR_PIN, PAL_EVENT_MODE_RISING_EDGE);
-#    endif
-            lpm_chip_enter_stop_mode();
-            break;
+        rtc_wakeup_bat_count++;
+        if (rtc_wakeup_bat_count >= BATTERY_RTC_CHECK_INTERVAL) {
+            rtc_wakeup_bat_count = 0;
+            if (!battery_rtc_check_voltage()) {
+                // 电池电压过低，完整跑一遍休眠配置后禁用 RTC，转为仅 USB 唤醒
+                if (!lpm_sleep_prepare()) {
+                    break;  // USB 已连接，不重新休眠
+                }
+                lpm_chip_rtc_wakeup_disable();
+                lpm_chip_enter_stop_mode();
+                break;
+            }
         }
 #endif
 

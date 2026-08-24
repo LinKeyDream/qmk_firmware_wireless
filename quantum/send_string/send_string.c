@@ -150,8 +150,19 @@ __attribute__((weak)) const uint8_t ascii_to_keycode_lut[128] PROGMEM = {
 // Note: we bit-pack in "reverse" order to optimize loading
 #define PGM_LOADBIT(mem, pos) ((pgm_read_byte(&((mem)[(pos) / 8])) >> ((pos) % 8)) & 0x01)
 
+#ifndef SEND_STRING_DELAY_MS
+#    define SEND_STRING_DELAY_MS 20
+#endif
+
 void send_string(const char *string) {
+#ifdef BLUETOOTH_BHQ
+    /* Use a larger delay for bluetooth to avoid report merging in
+     * bluetooth_bhq_send_keyboard() where reports within 5ms are
+     * merged together, causing character ordering issues. */
+    send_string_with_delay(string, SEND_STRING_DELAY_MS);
+#else
     send_string_with_delay(string, TAP_CODE_DELAY);
+#endif
 }
 
 void send_string_with_delay_impl(char (*getter)(void *), void *arg, uint8_t interval) {
