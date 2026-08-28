@@ -41,14 +41,23 @@
  */
 static inline void lpm_chip_enter_stop_mode(void) {
 #if STM32_HSE_ENABLED
-    /* Switch to HSI */
+    /* HSI must be running before the system clock is switched away from HSE/PLL. */
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0U)
+        ;
+
+    /* Switch to HSI before stopping HSE and PLL. */
     RCC->CFGR = (RCC->CFGR & (~STM32_SW_MASK)) | STM32_SW_HSI;
     while ((RCC->CFGR & RCC_CFGR_SWS) != (STM32_SW_HSI << 2))
         ;
 
-    /* Set HSE off */
+    /* Stop the external clock and PLL after the switch has completed. */
     RCC->CR &= ~RCC_CR_HSEON;
     while ((RCC->CR & RCC_CR_HSERDY))
+        ;
+
+    RCC->CR &= ~RCC_CR_PLLON;
+    while ((RCC->CR & RCC_CR_PLLRDY))
         ;
 
     palSetLineMode(LPM_STM32_HSE_PIN_IN, PAL_MODE_INPUT_ANALOG);
@@ -56,6 +65,8 @@ static inline void lpm_chip_enter_stop_mode(void) {
 #endif
 
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+    /* Do not carry a previous wakeup event into the next STOP entry. */
+    PWR->CR |= PWR_CR_CWUF;
     PWR->CR |= PWR_CR_MRLVDS | PWR_CR_LPLVDS | PWR_CR_FPDS | PWR_CR_LPDS;
     __WFI();
 
