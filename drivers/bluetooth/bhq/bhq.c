@@ -239,6 +239,88 @@ void bhq_update_battery_percent(uint8_t percent, uint16_t bat_mv) {
     BHQ_SendCmd(BHQ_ACK, bhkBuff,index);
 }
 
+void bhq_ConfigParam(bhqDevConfigInfo_t parma)
+{
+    uint8_t i = 0;
+    uint8_t index = 0;
+    memset(bhkBuff, 0, PACKET_MAX_LEN);
+
+    // ---- 名称长度拦截校验,超长截断 ----
+    if (parma.bleNameStrLength > BLE_ADVERT_NAME_MAX) {
+        parma.bleNameStrLength = BLE_ADVERT_NAME_MAX;
+    }
+    if (parma.bleSwiftPairNameStrLength > BLE_SWIFT_PAIR_NAME_MAX) {
+        parma.bleSwiftPairNameStrLength = BLE_SWIFT_PAIR_NAME_MAX;
+    }
+    if (parma.usbNameStrLength > USB_NAME_MAX) {
+        parma.usbNameStrLength = USB_NAME_MAX;
+    }
+    if (parma.usbVendorNameStrLength > USB_VENDOR_NAME_MAX) {
+        parma.usbVendorNameStrLength = USB_VENDOR_NAME_MAX;
+    }
+
+    bhkBuff[index++] = 0x11;
+    bhkBuff[index++] = parma.vendor_id_source;
+    bhkBuff[index++] = BHQ_L_UINT16(parma.verndor_id);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.verndor_id);
+
+    bhkBuff[index++] = BHQ_L_UINT16(parma.product_id);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.product_id);
+
+    bhkBuff[index++] = BHQ_L_UINT16(parma.le_connection_interval_min);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.le_connection_interval_min);
+
+    bhkBuff[index++] = BHQ_L_UINT16(parma.le_connection_interval_max);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.le_connection_interval_max);
+
+    bhkBuff[index++] = BHQ_L_UINT16(parma.le_connection_interval_timeout);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.le_connection_interval_timeout);
+
+    bhkBuff[index++] = parma.tx_poweer;
+    bhkBuff[index++] = parma.mk_is_read_battery_voltage;
+    bhkBuff[index++] = parma.mk_adc_pga;
+
+    bhkBuff[index++] = BHQ_L_UINT16(parma.mk_rvd_r1);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.mk_rvd_r1);
+
+    bhkBuff[index++] = BHQ_L_UINT16(parma.mk_rvd_r2);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.mk_rvd_r2);
+
+    bhkBuff[index++] = BHQ_L_UINT16(parma.sleep_1_s);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.sleep_1_s);
+
+    bhkBuff[index++] = BHQ_L_UINT16(parma.sleep_2_s);
+    bhkBuff[index++] = BHQ_H_UINT16(parma.sleep_2_s);
+
+    bhkBuff[index++] = parma.bleNameStrLength;
+    for (i = 0; i < parma.bleNameStrLength; i++)
+    {
+        bhkBuff[index++] = parma.bleNameStr[i];
+    }
+
+    bhkBuff[index++] = parma.bleSwiftPairNameStrLength;
+    for (i = 0; i < parma.bleSwiftPairNameStrLength; i++)
+    {
+        bhkBuff[index++] = parma.bleSwiftPairName[i];
+    }
+
+
+    bhkBuff[index++] = parma.usbNameStrLength;
+    for (i = 0; i < parma.usbNameStrLength; i++)
+    {
+        bhkBuff[index++] = parma.usbNameStr[i];
+    }
+
+    bhkBuff[index++] = parma.usbVendorNameStrLength;
+    for (i = 0; i < parma.usbVendorNameStrLength; i++)
+    {
+        bhkBuff[index++] = parma.usbVendorNameStr[i];
+    }
+
+
+    BHQ_SendCmd(BHQ_NOT_ACK, bhkBuff, index);
+}
+
 
 void bhq_send_keyboard(uint8_t* report) {
     uint8_t index = 0;
