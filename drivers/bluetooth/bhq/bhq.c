@@ -301,7 +301,7 @@ void bhq_ConfigParam(bhqDevConfigInfo_t parma)
     bhkBuff[index++] = parma.bleSwiftPairNameStrLength;
     for (i = 0; i < parma.bleSwiftPairNameStrLength; i++)
     {
-        bhkBuff[index++] = parma.bleSwiftPairName[i];
+        bhkBuff[index++] = parma.bleSwiftPairNameStr[i];
     }
 
 

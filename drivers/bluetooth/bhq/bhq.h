@@ -59,7 +59,7 @@ typedef struct
     uint8_t bleNameStr[BLE_ADVERT_NAME_MAX];
 
     uint8_t bleSwiftPairNameStrLength;          // Swift Pair Display Name 长度
-    uint8_t bleSwiftPairName[BLE_SWIFT_PAIR_NAME_MAX];
+    uint8_t bleSwiftPairNameStr[BLE_SWIFT_PAIR_NAME_MAX];
 
 // ------------------------------------ USB 的配置信息 ------------------------------------
     uint8_t usbNameStrLength;                   // USB 名称(产品名)长度
