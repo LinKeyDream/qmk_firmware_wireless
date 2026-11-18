@@ -21,6 +21,24 @@
 #include "transport.h"
 #include "wireless.h"
 
+// 蓝牙/USB 名称宏(各键盘可在 config.h 或 keymap 里自行覆盖)
+// 蓝牙名称
+#ifndef BLE_NAME
+#   define BLE_NAME PRODUCT
+#endif
+// 蓝牙 SwiftPair 名称
+#ifndef BLE_SWIFT_PAIR_NAME
+#   define BLE_SWIFT_PAIR_NAME PRODUCT
+#endif
+// USB 接收器名称
+#ifndef USB_DOG_NAME
+#   define USB_DOG_NAME PRODUCT "_DOG"
+#endif
+// USB 接收器厂商名称
+#ifndef USB_DOG_VENDOR_NAME
+#   define USB_DOG_VENDOR_NAME MANUFACTURER
+#endif
+
 
 // 切换输出通道（蓝牙 / 2.4G / USB）
 // 切换到蓝牙输出，并开启广播（非配对类型）

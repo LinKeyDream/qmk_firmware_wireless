@@ -338,15 +338,33 @@ static void lpm_wake_restore(void) {
 
 bool lowpower_matrix_task(void) {
 #ifdef LPM_EC_MATRIX
-    // EC 静电容矩阵：使用 ADC 扫描
+    // EC 静电容矩阵：使用 ADC 扫描 + 二次确认
     bool           any_key_pressed = false;
-    matrix_row_t   raw_matrix[MATRIX_ROWS];
+    matrix_row_t   raw_matrix[MATRIX_ROWS] = {0};
     ec_matrix_scan(raw_matrix);
     for (size_t i = 0; i < MATRIX_ROWS; i++) {
         if (raw_matrix[i] > 0) {
             any_key_pressed = true;
+            break;
         }
     }
+
+    // 第一次检测到按键 → 空读两次 ADC 后再次扫描确认，排除误触
+    if (any_key_pressed) {
+        ec_adc_dummy_read();
+        ec_adc_dummy_read();
+
+        any_key_pressed = false;
+        memset(raw_matrix, 0, sizeof(raw_matrix));
+        ec_matrix_scan(raw_matrix);
+        for (size_t i = 0; i < MATRIX_ROWS; i++) {
+            if (raw_matrix[i] > 0) {
+                any_key_pressed = true;
+                break;
+            }
+        }
+    }
+
 #    if defined(KB_DEBUG)
     ec_print_matrix();
 #    endif

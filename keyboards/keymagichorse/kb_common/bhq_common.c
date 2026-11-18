@@ -42,6 +42,10 @@ bool usb_power_connected(void) {
 #endif
 }
 
+// 蓝牙模块配置发送标志:置 1 后,bhq_wireless_task 延迟 500ms 发送一次
+static uint8_t  is_config_pending = 1;
+static uint32_t config_send_time  = 0;
+
 
 void bhq_common_init(void)
 {
@@ -298,5 +302,47 @@ void bhq_wireless_task(void)
     battery_task();
     bhq_common_battery_low_task();
 #endif
+
+    if (is_config_pending == 1) {   // 稍微延迟500ms 等稳定一下下再发
+        if (timer_elapsed32(config_send_time) >= 500) {
+            is_config_pending = 0;
+
+            // 局部变量,指定初始化(designated initializer),从 QMK 配置宏取值
+            bhqDevConfigInfo_t cfg = {
+                .vendor_id_source               = 1,    // 1: USB-IF
+                .verndor_id                     = VENDOR_ID,
+                .product_id                     = PRODUCT_ID,
+
+                .le_connection_interval_min     = 6,    // 最小连接间隔(1.25ms)
+                .le_connection_interval_max     = 35,   // 最大连接间隔(1.25ms)
+                .le_connection_interval_timeout = 500,  // 连接间隔超时
+                .tx_poweer                      = 0x3D, // 最强
+
+                // 电池相关字段已废弃,全部填 0
+                .mk_is_read_battery_voltage     = 0,
+                .mk_adc_pga                     = 0,
+                .mk_rvd_r1                      = 0,
+                .mk_rvd_r2                      = 0,
+
+                .sleep_1_s                      = 10,   // 一级休眠(秒)
+                .sleep_2_s                      = 300,  // 二级休眠/关机(秒)
+
+                .bleNameStrLength               = strlen(BLE_NAME), // 蓝牙名称
+                .bleNameStr                     = BLE_NAME,
+
+                .bleSwiftPairNameStrLength      = strlen(BLE_SWIFT_PAIR_NAME), // 蓝牙swift pair名称
+                .bleSwiftPairNameStr            = BLE_SWIFT_PAIR_NAME,
+
+                .usbNameStrLength               = strlen(USB_DOG_NAME),     // USB接收器名称
+                .usbNameStr                     = USB_DOG_NAME,
+
+                .usbVendorNameStrLength         = strlen(USB_DOG_VENDOR_NAME),  // USB接收器厂商名称
+                .usbVendorNameStr               = USB_DOG_VENDOR_NAME,
+            };
+
+
+            bhq_ConfigParam(cfg);
+        }
+    }
 }
 

@@ -167,7 +167,8 @@ int ec_init(void) {
     gpio_set_pin_output(OPAMP_EN_PIN);    
     OPAMP_DISABLE();
 #endif
-
+    (void)adc_read(adcMux);
+    (void)adc_read(adcMux);
     return 0;
 }
 
@@ -289,6 +290,7 @@ static inline uint16_t ec_median(uint16_t *arr, uint8_t n) {
 }
 
 static inline uint16_t ec_filter_update(ec_key_filter_t *f, uint16_t raw) {
+        return raw;
     // 首次采样 - 初始化历史缓冲区
     if (!(f->state & 0x01)) {
         for (uint8_t i = 0; i < EC_MEDIAN_WINDOW - 1; i++) {
@@ -340,6 +342,11 @@ static inline uint16_t ec_filter_update(ec_key_filter_t *f, uint16_t raw) {
     return f->filtered;
 }
 
+// ADC dummy read — external callers can discard stale ADC samples without needing adcMux
+void ec_adc_dummy_read(void) {
+    (void)adc_read(adcMux);
+}
+
 // Read the capacitive sensor value
 uint16_t ec_readkey_raw(uint8_t channel, uint8_t row, uint8_t col, uint8_t adjusted_col) {
     uint16_t sw_value = 0;
@@ -386,12 +393,12 @@ bool ec_update_key(matrix_row_t* current_row, uint8_t row, uint8_t col, uint16_t
     if (ec_config.actuation_mode == 0) {
         if (current_state && sw_value < ec_config.rescaled_mode_0_release_threshold[row][col]) {
             *current_row &= ~(1 << col);
-            // uprintf("Key released: %d, %d, %d\n", row, col, sw_value);
+            uprintf("Key released: %d, %d, %d\n", row, col, sw_value);
             return true;
         }
         if ((!current_state) && sw_value > ec_config.rescaled_mode_0_actuation_threshold[row][col]) {
             *current_row |= (1 << col);
-            // uprintf("Key pressed: %d, %d, %d\n", row, col, sw_value);
+            uprintf("Key pressed: %d, %d, %d\n", row, col, sw_value);
             return true;
         }
     }
@@ -404,13 +411,13 @@ bool ec_update_key(matrix_row_t* current_row, uint8_t row, uint8_t col, uint16_t
                 // Is the key still moving down?
                 if (sw_value > ec_config.extremum[row][col]) {
                     ec_config.extremum[row][col] = sw_value;
-                    // uprintf("Key pressed: %d, %d, %d\n", row, col, sw_value);
+                    uprintf("Key pressed: %d, %d, %d\n", row, col, sw_value);
                 }
                 // Has key moved up enough to be released?
                 else if (sw_value < ec_config.extremum[row][col] - ec_config.rescaled_mode_1_release_offset[row][col]) {
                     ec_config.extremum[row][col] = sw_value;
                     *current_row &= ~(1 << col);
-                    // uprintf("Key released: %d, %d, %d\n", row, col, sw_value);
+                    uprintf("Key released: %d, %d, %d\n", row, col, sw_value);
                     return true;
                 }
             }
@@ -424,7 +431,7 @@ bool ec_update_key(matrix_row_t* current_row, uint8_t row, uint8_t col, uint16_t
                 else if (sw_value > ec_config.extremum[row][col] + ec_config.rescaled_mode_1_actuation_offset[row][col]) {
                     ec_config.extremum[row][col] = sw_value;
                     *current_row |= (1 << col);
-                    // uprintf("Key pressed: %d, %d, %d\n", row, col, sw_value);
+                    uprintf("Key pressed: %d, %d, %d\n", row, col, sw_value);
                     return true;
                 }
             }
@@ -444,13 +451,13 @@ bool ec_update_key(matrix_row_t* current_row, uint8_t row, uint8_t col, uint16_t
 
 // Print the matrix values
 void ec_print_matrix(void) {
-    for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
-        for (uint8_t col = 0; col < MATRIX_COLS - 1; col++) {
-            uprintf("%4d,", sw_value[row][col]);
-        }
-        uprintf("%4d\n", sw_value[row][MATRIX_COLS - 1]);
-    }
-    print("\n");
+    // for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
+    //     for (uint8_t col = 0; col < MATRIX_COLS - 1; col++) {
+    //         uprintf("%4d,", sw_value[row][col]);
+    //     }
+    //     uprintf("%4d\n", sw_value[row][MATRIX_COLS - 1]);
+    // }
+    // print("\n");
 }
 
 // Check if the position is unused
